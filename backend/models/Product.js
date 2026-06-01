@@ -102,10 +102,13 @@ const questionSchema = new mongoose.Schema(
 
 const productSchema = new mongoose.Schema(
   {
-    productType: {
+    slug: {
       type: String,
-      enum: ["general", "detailed"],
-      default: "general",
+      trim: true,
+      lowercase: true,
+      unique: true,
+      sparse: true,
+      maxlength: [160, "Slug cannot be more than 160 characters"],
     },
     name: {
       type: String,
@@ -113,10 +116,11 @@ const productSchema = new mongoose.Schema(
       trim: true,
       maxlength: [100, "Product name cannot be more than 100 characters"],
     },
-    description: {
+    shortDescription: {
       type: String,
-      required: [true, "Product description is required"],
-      maxlength: [1000, "Description cannot be more than 1000 characters"],
+      trim: true,
+      required: [true, "Short description is required"],
+      maxlength: [300, "Short description cannot be more than 300 characters"],
     },
     briefDescription: {
       type: String,
@@ -155,6 +159,38 @@ const productSchema = new mongoose.Schema(
       required: [true, "Product category is required"],
       trim: true,
     },
+    subcategory: {
+      type: String,
+      trim: true,
+      default: "",
+      maxlength: [100, "Subcategory cannot be more than 100 characters"],
+    },
+    brand: {
+      type: String,
+      trim: true,
+      default: "",
+      maxlength: [100, "Brand cannot be more than 100 characters"],
+    },
+    tags: {
+      type: [
+        {
+          type: String,
+          trim: true,
+          maxlength: [50, "Each tag cannot be more than 50 characters"],
+        },
+      ],
+      default: [],
+    },
+    originalPrice: {
+      type: Number,
+      default: 0,
+      min: [0, "Original price cannot be negative"],
+    },
+    salePrice: {
+      type: Number,
+      default: 0,
+      min: [0, "Sale price cannot be negative"],
+    },
     sku: {
       type: String,
       required: [true, "SKU is required"],
@@ -167,42 +203,17 @@ const productSchema = new mongoose.Schema(
         "SKU can only contain letters, numbers, hyphens, and underscores",
       ],
     },
+    barcode: {
+      type: String,
+      trim: true,
+      default: "",
+      maxlength: [128, "Barcode cannot be more than 128 characters"],
+    },
     stock: {
       type: Number,
       required: [true, "Stock quantity is required"],
       min: [0, "Stock cannot be negative"],
       default: 0,
-    },
-    helpsTo: {
-      type: String,
-      trim: true,
-      maxlength: [600, "Helps to content cannot be more than 600 characters"],
-      default: "",
-    },
-    directions: {
-      type: [
-        {
-          type: String,
-          trim: true,
-          maxlength: [300, "Each direction step cannot exceed 300 characters"],
-        },
-      ],
-      default: [],
-    },
-    servingSize: {
-      type: String,
-      trim: true,
-      maxlength: [200, "Serving size cannot be more than 200 characters"],
-      default: "",
-    },
-    instructionsContent: {
-      type: String,
-      trim: true,
-      maxlength: [
-        2000,
-        "Instructions content cannot be more than 2000 characters",
-      ],
-      default: "",
     },
     faqContent: {
       type: String,
@@ -219,23 +230,6 @@ const productSchema = new mongoose.Schema(
       ],
       default: "",
     },
-    ingredients: {
-      type: [
-        {
-          name: {
-            type: String,
-            trim: true,
-            maxlength: [150, "Ingredient name cannot exceed 150 characters"],
-          },
-          amount: {
-            type: String,
-            trim: true,
-            maxlength: [100, "Ingredient amount cannot exceed 100 characters"],
-          },
-        },
-      ],
-      default: [],
-    },
     images: [
       {
         url: {
@@ -251,6 +245,83 @@ const productSchema = new mongoose.Schema(
     image: {
       type: String,
       default: "",
+    },
+    thumbnail: {
+      type: String,
+      default: "",
+    },
+    videoUrl: {
+      type: String,
+      trim: true,
+      default: "",
+    },
+    featured: {
+      type: Boolean,
+      default: false,
+    },
+    trending: {
+      type: Boolean,
+      default: false,
+    },
+    bestseller: {
+      type: Boolean,
+      default: false,
+    },
+    newArrival: {
+      type: Boolean,
+      default: false,
+    },
+    status: {
+      type: String,
+      enum: ["draft", "published"],
+      default: "published",
+    },
+    attributes: {
+      color: { type: String, trim: true, default: "" },
+      material: { type: String, trim: true, default: "" },
+      size: { type: String, trim: true, default: "" },
+      lensType: { type: String, trim: true, default: "" },
+      uvProtection: { type: String, trim: true, default: "" },
+      frameMaterial: { type: String, trim: true, default: "" },
+      author: { type: String, trim: true, default: "" },
+      pages: { type: Number, min: 0, default: null },
+      language: { type: String, trim: true, default: "" },
+      bottleCapacity: { type: String, trim: true, default: "" },
+      dimensions: { type: String, trim: true, default: "" },
+    },
+    shipping: {
+      weight: { type: Number, min: 0, default: 0 },
+      length: { type: Number, min: 0, default: 0 },
+      width: { type: Number, min: 0, default: 0 },
+      height: { type: Number, min: 0, default: 0 },
+      freeShipping: { type: Boolean, default: false },
+    },
+    seo: {
+      metaTitle: {
+        type: String,
+        trim: true,
+        default: "",
+        maxlength: [160, "Meta title cannot be more than 160 characters"],
+      },
+      metaDescription: {
+        type: String,
+        trim: true,
+        default: "",
+        maxlength: [320, "Meta description cannot be more than 320 characters"],
+      },
+      seoKeywords: {
+        type: [
+          {
+            type: String,
+            trim: true,
+            maxlength: [
+              64,
+              "Each SEO keyword cannot be more than 64 characters",
+            ],
+          },
+        ],
+        default: [],
+      },
     },
     reviews: [reviewSchema],
     questions: [questionSchema],
@@ -328,6 +399,16 @@ productSchema.methods.calculateAverageRating = function () {
   }
   this.numReviews = this.reviews.length;
 };
+
+productSchema.index(
+  { barcode: 1 },
+  {
+    unique: true,
+    partialFilterExpression: {
+      barcode: { $type: "string", $ne: "" },
+    },
+  },
+);
 
 const Product = mongoose.model("Product", productSchema);
 

@@ -30,15 +30,32 @@ export const fetchProducts = createAsyncThunk(
   async (params = {}, { getState, rejectWithValue }) => {
     try {
       const { products: productState } = getState();
+      const pick = (key, fallback) =>
+        Object.prototype.hasOwnProperty.call(params, key)
+          ? params[key]
+          : fallback;
+
       const queryParams = {
-        page: params.page || productState.pagination.page,
-        limit: params.limit || productState.pagination.limit,
-        search: params.search || productState.filters.search,
-        category: params.category || productState.filters.category,
-        minPrice: params.minPrice || productState.filters.minPrice,
-        maxPrice: params.maxPrice || productState.filters.maxPrice,
-        sort: params.sort || productState.filters.sort,
+        page: pick("page", productState.pagination.page),
+        limit: pick("limit", productState.pagination.limit),
+        search: pick("search", productState.filters.search),
+        category: pick("category", productState.filters.category),
+        minPrice: pick("minPrice", productState.filters.minPrice),
+        maxPrice: pick("maxPrice", productState.filters.maxPrice),
+        sort: pick("sort", productState.filters.sort),
       };
+
+      if (params.includeDraft !== undefined) {
+        queryParams.includeDraft = String(Boolean(params.includeDraft));
+      }
+
+      if (params.status) {
+        queryParams.status = params.status;
+      }
+
+      if (params.showOnHomeBanner !== undefined) {
+        queryParams.showOnHomeBanner = String(Boolean(params.showOnHomeBanner));
+      }
 
       const queryString = new URLSearchParams(queryParams).toString();
       const response = await api.get(`/products?${queryString}`);
@@ -54,9 +71,11 @@ export const fetchProducts = createAsyncThunk(
 
 export const fetchProduct = createAsyncThunk(
   "products/fetchProduct",
-  async (id, { rejectWithValue }) => {
+  async (id, { getState, rejectWithValue }) => {
     try {
-      const response = await api.get(`/products/${id}`);
+      const token = getState()?.auth?.accessToken;
+      const headers = token ? { Authorization: `Bearer ${token}` } : undefined;
+      const response = await api.get(`/products/${id}`, { headers });
       return response.data.data;
     } catch (error) {
       return rejectWithValue(
@@ -150,6 +169,13 @@ export const createProduct = createAsyncThunk(
       });
       return response.data.data;
     } catch (error) {
+      const details = error.response?.data?.details;
+      if (Array.isArray(details) && details.length > 0) {
+        const firstMessage = details[0]?.msg || details[0]?.message;
+        if (firstMessage) {
+          return rejectWithValue(firstMessage);
+        }
+      }
       return rejectWithValue(
         error.response?.data?.error || "Failed to create product",
       );
@@ -169,6 +195,13 @@ export const updateProduct = createAsyncThunk(
       });
       return response.data.data;
     } catch (error) {
+      const details = error.response?.data?.details;
+      if (Array.isArray(details) && details.length > 0) {
+        const firstMessage = details[0]?.msg || details[0]?.message;
+        if (firstMessage) {
+          return rejectWithValue(firstMessage);
+        }
+      }
       return rejectWithValue(
         error.response?.data?.error || "Failed to update product",
       );

@@ -22,12 +22,9 @@ import {
   recordSale,
   clearCache,
 } from "../controllers/trendingProductController.js";
-import { protect, authorize } from "../middleware/auth.js";
+import { protect, optionalProtect, authorize } from "../middleware/auth.js";
 
 const router = express.Router();
-
-const getWordCount = (value = "") =>
-  String(value).trim().split(/\s+/).filter(Boolean).length;
 
 const isValidBriefPoints = (value) => {
   if (!Array.isArray(value) || value.length === 0) {
@@ -42,51 +39,52 @@ const isValidBriefPoints = (value) => {
   );
 };
 
-const isValidIngredients = (value) => {
-  if (!Array.isArray(value)) {
-    return false;
+const isArrayOrCommaSeparatedString = (value) => {
+  if (value === undefined || value === null) return true;
+  if (Array.isArray(value)) {
+    return value.every((item) => typeof item === "string");
   }
-
-  return value.every((item) => {
-    if (!item || typeof item !== "object") {
-      return false;
-    }
-
-    const name = String(item.name || "").trim();
-    const amount = String(item.amount || "").trim();
-
-    if (!name && !amount) {
-      return true;
-    }
-
-    return name.length > 0 && name.length <= 150 && amount.length <= 100;
-  });
+  return typeof value === "string";
 };
-
-const isValidProductType = (value) => ["general", "detailed"].includes(value);
 
 // Validation rules
 const createProductValidation = [
-  body("productType")
-    .optional()
-    .custom((value) => {
-      if (!isValidProductType(value)) {
-        throw new Error("Invalid product type");
-      }
-      return true;
-    }),
   body("name")
     .trim()
     .isLength({ min: 2, max: 100 })
     .withMessage("Name must be between 2 and 100 characters"),
-  body("description")
+  body("shortDescription")
     .trim()
-    .isLength({ min: 10, max: 1000 })
-    .withMessage("Description must be between 10 and 1000 characters")
+    .isLength({ min: 10, max: 300 })
+    .withMessage("Short description must be between 10 and 300 characters"),
+  body("slug")
+    .optional({ values: "falsy" })
+    .trim()
+    .matches(/^[a-z0-9]+(?:-[a-z0-9]+)*$/)
+    .withMessage(
+      "Slug must contain lowercase letters, numbers, and hyphens only",
+    ),
+  body("shortDescription")
+    .optional()
+    .trim()
+    .isLength({ max: 300 })
+    .withMessage("Short description cannot be more than 300 characters"),
+  body("subcategory")
+    .optional()
+    .trim()
+    .isLength({ max: 100 })
+    .withMessage("Subcategory cannot be more than 100 characters"),
+  body("brand")
+    .optional()
+    .trim()
+    .isLength({ max: 100 })
+    .withMessage("Brand cannot be more than 100 characters"),
+  body("tags")
+    .optional()
     .custom((value) => {
-      if (getWordCount(value) > 50) {
+      if (!isArrayOrCommaSeparatedString(value)) {
         throw new Error(
-          "Description for product listing must be 50 words or fewer",
+          "Tags must be an array of strings or a comma-separated string",
         );
       }
       return true;
@@ -105,6 +103,14 @@ const createProductValidation = [
   body("costPrice")
     .isFloat({ min: 0 })
     .withMessage("Cost price must be a positive number"),
+  body("originalPrice")
+    .optional()
+    .isFloat({ min: 0 })
+    .withMessage("Original price must be a positive number"),
+  body("salePrice")
+    .optional()
+    .isFloat({ min: 0 })
+    .withMessage("Sale price must be a positive number"),
   body("sku")
     .trim()
     .isLength({ min: 3, max: 64 })
@@ -113,6 +119,11 @@ const createProductValidation = [
     .withMessage(
       "SKU can only contain letters, numbers, hyphens, and underscores",
     ),
+  body("barcode")
+    .optional()
+    .trim()
+    .isLength({ max: 128 })
+    .withMessage("Barcode cannot be more than 128 characters"),
   body("category").custom(async (value) => {
     const category = await Category.findOne({ value, isActive: true });
     if (!category) {
@@ -120,34 +131,6 @@ const createProductValidation = [
     }
     return true;
   }),
-  body("helpsTo")
-    .optional()
-    .trim()
-    .isLength({ max: 600 })
-    .withMessage("Helps to content cannot be more than 600 characters"),
-  body("directions")
-    .optional()
-    .custom((value) => {
-      if (value !== undefined && value !== null) {
-        if (!Array.isArray(value))
-          throw new Error("Directions must be an array");
-        if (value.some((s) => typeof s !== "string" || s.length > 300))
-          throw new Error(
-            "Each direction step must be a string up to 300 characters",
-          );
-      }
-      return true;
-    }),
-  body("servingSize")
-    .optional()
-    .trim()
-    .isLength({ max: 200 })
-    .withMessage("Serving size cannot be more than 200 characters"),
-  body("instructionsContent")
-    .optional()
-    .trim()
-    .isLength({ max: 2000 })
-    .withMessage("Instructions content cannot be more than 2000 characters"),
   body("faqContent")
     .optional()
     .trim()
@@ -158,16 +141,6 @@ const createProductValidation = [
     .trim()
     .isLength({ max: 3000 })
     .withMessage("Quality promise content cannot be more than 3000 characters"),
-  body("ingredients")
-    .optional()
-    .custom((value) => {
-      if (!isValidIngredients(value)) {
-        throw new Error(
-          "Ingredients must be a list of rows with name (required when row is filled) and optional amount",
-        );
-      }
-      return true;
-    }),
   body("stock")
     .isInt({ min: 0 })
     .withMessage("Stock must be a non-negative integer"),
@@ -175,31 +148,124 @@ const createProductValidation = [
     .optional()
     .isBoolean()
     .withMessage("showOnHomeBanner must be a boolean"),
-];
-
-const updateProductValidation = [
-  body("productType")
+  body("thumbnail")
+    .optional()
+    .isString()
+    .withMessage("Thumbnail must be a string"),
+  body("videoUrl")
+    .optional()
+    .isString()
+    .withMessage("Video URL must be a string"),
+  body("featured")
+    .optional()
+    .isBoolean()
+    .withMessage("Featured must be a boolean"),
+  body("trending")
+    .optional()
+    .isBoolean()
+    .withMessage("Trending must be a boolean"),
+  body("bestseller")
+    .optional()
+    .isBoolean()
+    .withMessage("Bestseller must be a boolean"),
+  body("newArrival")
+    .optional()
+    .isBoolean()
+    .withMessage("New arrival must be a boolean"),
+  body("status")
+    .optional()
+    .isIn(["draft", "published"])
+    .withMessage("Status must be either draft or published"),
+  body("attributes")
+    .optional()
+    .isObject()
+    .withMessage("Attributes must be an object"),
+  body("shipping")
+    .optional()
+    .isObject()
+    .withMessage("Shipping must be an object"),
+  body("shipping.weight")
+    .optional()
+    .isFloat({ min: 0 })
+    .withMessage("Shipping weight must be a positive number"),
+  body("shipping.length")
+    .optional()
+    .isFloat({ min: 0 })
+    .withMessage("Shipping length must be a positive number"),
+  body("shipping.width")
+    .optional()
+    .isFloat({ min: 0 })
+    .withMessage("Shipping width must be a positive number"),
+  body("shipping.height")
+    .optional()
+    .isFloat({ min: 0 })
+    .withMessage("Shipping height must be a positive number"),
+  body("shipping.freeShipping")
+    .optional()
+    .isBoolean()
+    .withMessage("Shipping freeShipping must be a boolean"),
+  body("seo").optional().isObject().withMessage("SEO must be an object"),
+  body("seo.metaTitle")
+    .optional()
+    .trim()
+    .isLength({ max: 160 })
+    .withMessage("SEO meta title cannot be more than 160 characters"),
+  body("seo.metaDescription")
+    .optional()
+    .trim()
+    .isLength({ max: 320 })
+    .withMessage("SEO meta description cannot be more than 320 characters"),
+  body("seoKeywords")
     .optional()
     .custom((value) => {
-      if (!isValidProductType(value)) {
-        throw new Error("Invalid product type");
+      if (!isArrayOrCommaSeparatedString(value)) {
+        throw new Error(
+          "SEO keywords must be an array of strings or a comma-separated string",
+        );
       }
       return true;
     }),
+];
+
+const updateProductValidation = [
   body("name")
     .optional()
     .trim()
     .isLength({ min: 2, max: 100 })
     .withMessage("Name must be between 2 and 100 characters"),
-  body("description")
+  body("shortDescription")
     .optional()
     .trim()
-    .isLength({ min: 10, max: 1000 })
-    .withMessage("Description must be between 10 and 1000 characters")
+    .isLength({ min: 10, max: 300 })
+    .withMessage("Short description must be between 10 and 300 characters"),
+  body("slug")
+    .optional({ values: "falsy" })
+    .trim()
+    .matches(/^[a-z0-9]+(?:-[a-z0-9]+)*$/)
+    .withMessage(
+      "Slug must contain lowercase letters, numbers, and hyphens only",
+    ),
+  body("shortDescription")
+    .optional()
+    .trim()
+    .isLength({ max: 300 })
+    .withMessage("Short description cannot be more than 300 characters"),
+  body("subcategory")
+    .optional()
+    .trim()
+    .isLength({ max: 100 })
+    .withMessage("Subcategory cannot be more than 100 characters"),
+  body("brand")
+    .optional()
+    .trim()
+    .isLength({ max: 100 })
+    .withMessage("Brand cannot be more than 100 characters"),
+  body("tags")
+    .optional()
     .custom((value) => {
-      if (getWordCount(value) > 50) {
+      if (!isArrayOrCommaSeparatedString(value)) {
         throw new Error(
-          "Description for product listing must be 50 words or fewer",
+          "Tags must be an array of strings or a comma-separated string",
         );
       }
       return true;
@@ -222,6 +288,14 @@ const updateProductValidation = [
     .optional()
     .isFloat({ min: 0 })
     .withMessage("Cost price must be a positive number"),
+  body("originalPrice")
+    .optional()
+    .isFloat({ min: 0 })
+    .withMessage("Original price must be a positive number"),
+  body("salePrice")
+    .optional()
+    .isFloat({ min: 0 })
+    .withMessage("Sale price must be a positive number"),
   body("sku")
     .optional()
     .trim()
@@ -231,6 +305,11 @@ const updateProductValidation = [
     .withMessage(
       "SKU can only contain letters, numbers, hyphens, and underscores",
     ),
+  body("barcode")
+    .optional()
+    .trim()
+    .isLength({ max: 128 })
+    .withMessage("Barcode cannot be more than 128 characters"),
   body("category")
     .optional()
     .custom(async (value) => {
@@ -248,34 +327,83 @@ const updateProductValidation = [
     .optional()
     .isBoolean()
     .withMessage("showOnHomeBanner must be a boolean"),
-  body("helpsTo")
+  body("thumbnail")
+    .optional()
+    .isString()
+    .withMessage("Thumbnail must be a string"),
+  body("videoUrl")
+    .optional()
+    .isString()
+    .withMessage("Video URL must be a string"),
+  body("featured")
+    .optional()
+    .isBoolean()
+    .withMessage("Featured must be a boolean"),
+  body("trending")
+    .optional()
+    .isBoolean()
+    .withMessage("Trending must be a boolean"),
+  body("bestseller")
+    .optional()
+    .isBoolean()
+    .withMessage("Bestseller must be a boolean"),
+  body("newArrival")
+    .optional()
+    .isBoolean()
+    .withMessage("New arrival must be a boolean"),
+  body("status")
+    .optional()
+    .isIn(["draft", "published"])
+    .withMessage("Status must be either draft or published"),
+  body("attributes")
+    .optional()
+    .isObject()
+    .withMessage("Attributes must be an object"),
+  body("shipping")
+    .optional()
+    .isObject()
+    .withMessage("Shipping must be an object"),
+  body("shipping.weight")
+    .optional()
+    .isFloat({ min: 0 })
+    .withMessage("Shipping weight must be a positive number"),
+  body("shipping.length")
+    .optional()
+    .isFloat({ min: 0 })
+    .withMessage("Shipping length must be a positive number"),
+  body("shipping.width")
+    .optional()
+    .isFloat({ min: 0 })
+    .withMessage("Shipping width must be a positive number"),
+  body("shipping.height")
+    .optional()
+    .isFloat({ min: 0 })
+    .withMessage("Shipping height must be a positive number"),
+  body("shipping.freeShipping")
+    .optional()
+    .isBoolean()
+    .withMessage("Shipping freeShipping must be a boolean"),
+  body("seo").optional().isObject().withMessage("SEO must be an object"),
+  body("seo.metaTitle")
     .optional()
     .trim()
-    .isLength({ max: 600 })
-    .withMessage("Helps to content cannot be more than 600 characters"),
-  body("directions")
+    .isLength({ max: 160 })
+    .withMessage("SEO meta title cannot be more than 160 characters"),
+  body("seo.metaDescription")
+    .optional()
+    .trim()
+    .isLength({ max: 320 })
+    .withMessage("SEO meta description cannot be more than 320 characters"),
+  body("seoKeywords")
     .optional()
     .custom((value) => {
-      if (value !== undefined && value !== null) {
-        if (!Array.isArray(value))
-          throw new Error("Directions must be an array");
-        if (value.some((s) => typeof s !== "string" || s.length > 300))
-          throw new Error(
-            "Each direction step must be a string up to 300 characters",
-          );
+      if (!isArrayOrCommaSeparatedString(value)) {
+        throw new Error(
+          "SEO keywords must be an array of strings or a comma-separated string",
+        );
       }
       return true;
     }),
-  body("servingSize")
-    .optional()
-    .trim()
-    .isLength({ max: 200 })
-    .withMessage("Serving size cannot be more than 200 characters"),
-  body("instructionsContent")
-    .optional()
-    .trim()
-    .isLength({ max: 2000 })
-    .withMessage("Instructions content cannot be more than 2000 characters"),
   body("faqContent")
     .optional()
     .trim()
@@ -286,16 +414,6 @@ const updateProductValidation = [
     .trim()
     .isLength({ max: 3000 })
     .withMessage("Quality promise content cannot be more than 3000 characters"),
-  body("ingredients")
-    .optional()
-    .custom((value) => {
-      if (!isValidIngredients(value)) {
-        throw new Error(
-          "Ingredients must be a list of rows with name (required when row is filled) and optional amount",
-        );
-      }
-      return true;
-    }),
 ];
 
 const reviewValidation = [
@@ -380,7 +498,8 @@ router.post("/:id/sale", protect, authorize("admin"), recordSale);
 // Main product routes
 router.get("/", getProducts);
 router.get("/categories", getCategories);
-router.get("/:id", getProduct);
+router.get("/slug/:id", optionalProtect, getProduct);
+router.get("/:id", optionalProtect, getProduct);
 router.post(
   "/",
   protect,
