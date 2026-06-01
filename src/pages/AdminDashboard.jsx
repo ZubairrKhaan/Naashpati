@@ -104,7 +104,6 @@ const AdminDashboard = () => {
   const [showAddProductModal, setShowAddProductModal] = useState(false);
   const [showEditProductModal, setShowEditProductModal] = useState(false);
   const [editingProduct, setEditingProduct] = useState(null);
-  const [selectedProductCategory, setSelectedProductCategory] = useState("");
   const [showAnnouncementModal, setShowAnnouncementModal] = useState(false);
   const [editingAnnouncement, setEditingAnnouncement] = useState(null);
   const [categoryForm, setCategoryForm] = useState({
@@ -369,7 +368,7 @@ const AdminDashboard = () => {
         expiryDate: "",
       });
       await fetchProductBatches(selectedBatchProductId);
-      dispatch(fetchProducts({ page: 1, limit: 200 }));
+      dispatch(fetchProducts({ page: 1, limit: 200, includeDraft: true }));
     } catch (error) {
       toast.error(error.message || "Failed to create batch");
     } finally {
@@ -530,7 +529,7 @@ const AdminDashboard = () => {
   useEffect(() => {
     if (isAuthenticated && user?.role === "admin") {
       // Prefetch core dashboard datasets so overview and stat cards are accurate immediately.
-      dispatch(fetchProducts({ page: 1, limit: 200 }));
+      dispatch(fetchProducts({ page: 1, limit: 200, includeDraft: true }));
       dispatch(fetchCategories());
       dispatch(getOrders({ page: 1, limit: 200 }));
       dispatch(getUsers({ page: 1, limit: 200 }));
@@ -545,7 +544,7 @@ const AdminDashboard = () => {
     if (!(isAuthenticated && user?.role === "admin")) return;
 
     if (activeTab === "products") {
-      dispatch(fetchProducts({ page: 1, limit: 200 }));
+      dispatch(fetchProducts({ page: 1, limit: 200, includeDraft: true }));
       dispatch(fetchAllProductBanners());
     } else if (activeTab === "categories") {
       dispatch(fetchCategories());
@@ -559,25 +558,11 @@ const AdminDashboard = () => {
       dispatch(fetchAllHeroSlides());
       dispatch(fetchHeroBadges());
     } else if (activeTab === "batches") {
-      dispatch(fetchProducts({ page: 1, limit: 200 }));
+      dispatch(fetchProducts({ page: 1, limit: 200, includeDraft: true }));
     } else if (activeTab === "about-video") {
       fetchAboutContent();
     }
   }, [activeTab, dispatch, isAuthenticated, user]);
-
-  useEffect(() => {
-    if (activeTab !== "products" || categories.length === 0) {
-      return;
-    }
-
-    setSelectedProductCategory((prev) => {
-      if (prev && categories.some((category) => category.value === prev)) {
-        return prev;
-      }
-
-      return categories[0].value;
-    });
-  }, [activeTab, categories]);
 
   useEffect(() => {
     if (activeTab !== "batches") return;
@@ -1767,12 +1752,6 @@ const AdminDashboard = () => {
   const selectedBatchProduct = products.find(
     (product) => product._id === selectedBatchProductId,
   );
-  const selectedProductCategoryData = categories.find(
-    (category) => category.value === selectedProductCategory,
-  );
-  const visibleProducts = selectedProductCategory
-    ? products.filter((product) => product.category === selectedProductCategory)
-    : products;
   if (!authChecked || !isAuthenticated || user?.role !== "admin") {
     return <Loader />;
   }
@@ -2018,11 +1997,7 @@ const AdminDashboard = () => {
                     className="bg-[#68a300] text-white px-4 py-2 rounded hover:bg-[#5f9600] flex items-center space-x-2"
                   >
                     <FaPlus />
-                    <span>
-                      {selectedProductCategoryData
-                        ? `Add Product to ${selectedProductCategoryData.name}`
-                        : "Add Product"}
-                    </span>
+                    <span>Add Product</span>
                   </button>
                   <button
                     onClick={() =>
@@ -2030,7 +2005,7 @@ const AdminDashboard = () => {
                         [
                           {
                             name: "Products",
-                            data: formatProductsForExport(visibleProducts),
+                            data: formatProductsForExport(products),
                           },
                         ],
                         "products.xlsx",
@@ -2044,171 +2019,120 @@ const AdminDashboard = () => {
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 gap-6 lg:grid-cols-[240px,1fr]">
-                <div className="rounded-lg border bg-white p-4 shadow-sm">
-                  <h3 className="mb-4 text-xs font-semibold uppercase tracking-wide text-gray-400">
-                    Product Tabs
-                  </h3>
-                  <div className="space-y-2">
-                    <button
-                      type="button"
-                      onClick={() => setSelectedProductCategory("")}
-                      className={`flex w-full items-center justify-between rounded-md px-3 py-2 text-left text-sm transition ${
-                        !selectedProductCategory
-                          ? "bg-green-50 text-green-700"
-                          : "text-gray-600 hover:bg-gray-50"
-                      }`}
-                    >
-                      <span>All Products</span>
-                      <span className="text-xs text-gray-400">
-                        {products.length}
-                      </span>
-                    </button>
-
-                    {categories.map((category) => {
-                      const categoryCount = products.filter(
-                        (product) => product.category === category.value,
-                      ).length;
-                      const isSelected = selectedProductCategory === category.value;
-
-                      return (
-                        <button
-                          key={category._id || category.value}
-                          type="button"
-                          onClick={() => setSelectedProductCategory(category.value)}
-                          className={`flex w-full items-center justify-between rounded-md px-3 py-2 text-left text-sm transition ${
-                            isSelected
-                              ? "bg-green-50 text-green-700"
-                              : "text-gray-600 hover:bg-gray-50"
-                          }`}
-                        >
-                          <span className="truncate">{category.name}</span>
-                          <span className="text-xs text-gray-400">
-                            {categoryCount}
-                          </span>
-                        </button>
-                      );
-                    })}
+              <div>
+                <div className="mb-4 flex items-center justify-between">
+                  <div>
+                    <h3 className="text-xl font-semibold">All Products</h3>
+                    <p className="text-sm text-gray-500">
+                      Showing {products.length} product
+                      {products.length === 1 ? "" : "s"}
+                    </p>
                   </div>
                 </div>
 
-                <div>
-                  <div className="mb-4 flex items-center justify-between">
-                    <div>
-                      <h3 className="text-xl font-semibold">
-                        {selectedProductCategoryData?.name || "All Products"}
-                      </h3>
-                      <p className="text-sm text-gray-500">
-                        Showing {visibleProducts.length} product
-                        {visibleProducts.length === 1 ? "" : "s"}
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="overflow-x-auto rounded-lg border bg-white shadow-sm">
-                <table className="min-w-full table-auto">
-                  <thead>
-                    <tr className="bg-gray-50">
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                        Product
-                      </th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                        Category
-                      </th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                        SKU
-                      </th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                        Cost Price
-                      </th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                        Price
-                      </th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                        Stock
-                      </th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                        Actions
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody className="bg-white divide-y divide-gray-200">
-                    {visibleProducts.map((product) => (
-                      <tr key={product._id}>
-                        <td className="px-4 py-4 whitespace-nowrap">
-                          <div className="flex items-center">
-                            <img
-                              src={
-                                product.image
-                                  ? resolveMediaUrl(product.image)
-                                  : resolveMediaUrl(
-                                      product.images?.[0]?.url ||
-                                        product.images?.[0],
-                                    )
-                              }
-                              alt={product.name}
-                              className="w-10 h-10 object-cover rounded"
-                            />
-                            <div className="ml-4">
-                              <div className="text-sm font-medium text-gray-900">
-                                {product.name}
-                              </div>
-                              <div className="text-xs text-gray-500">
-                                {product.productType || "general"} product
+                <div className="overflow-x-auto rounded-lg border bg-white shadow-sm">
+                  <table className="min-w-full table-auto">
+                    <thead>
+                      <tr className="bg-gray-50">
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                          Product
+                        </th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                          Category
+                        </th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                          SKU
+                        </th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                          Cost Price
+                        </th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                          Price
+                        </th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                          Stock
+                        </th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                          Actions
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-gray-200">
+                      {products.map((product) => (
+                        <tr key={product._id}>
+                          <td className="px-4 py-4 whitespace-nowrap">
+                            <div className="flex items-center">
+                              <img
+                                src={
+                                  product.image
+                                    ? resolveMediaUrl(product.image)
+                                    : resolveMediaUrl(
+                                        product.images?.[0]?.url ||
+                                          product.images?.[0],
+                                      )
+                                }
+                                alt={product.name}
+                                className="w-10 h-10 object-cover rounded"
+                              />
+                              <div className="ml-4">
+                                <div className="text-sm font-medium text-gray-900">
+                                  {product.name}
+                                </div>
+                                <div className="text-xs text-gray-500">
+                                  Product
+                                </div>
                               </div>
                             </div>
-                          </div>
-                        </td>
-                        <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500 capitalize">
-                          {product.category}
-                        </td>
-                        <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-900">
-                          {product.sku || "N/A"}
-                        </td>
-                        <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-900">
-                          ${Number(product.costPrice || 0).toFixed(2)}
-                        </td>
-                        <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-900">
-                          ${product.price?.toFixed(2)}
-                        </td>
-                        <td className="px-4 py-4 whitespace-nowrap">
-                          <span
-                            className={`px-2 py-1 text-xs rounded ${
-                              product.stock > 10
-                                ? "bg-green-100 text-green-800"
-                                : product.stock > 0
-                                  ? "bg-yellow-100 text-yellow-800"
-                                  : "bg-red-100 text-red-800"
-                            }`}
-                          >
-                            {product.stock}
-                          </span>
-                        </td>
-                        <td className="px-4 py-4 whitespace-nowrap text-sm font-medium space-x-2">
-                          <button
-                            onClick={() => handleEditProduct(product)}
-                            className="text-blue-600 hover:text-blue-900"
-                          >
-                            <FaEdit />
-                          </button>
-                          <button
-                            onClick={() => handleDeleteProduct(product._id)}
-                            className="text-red-600 hover:text-red-900"
-                          >
-                            <FaTrash />
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+                          </td>
+                          <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500 capitalize">
+                            {product.category}
+                          </td>
+                          <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-900">
+                            {product.sku || "N/A"}
+                          </td>
+                          <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-900">
+                            ${Number(product.costPrice || 0).toFixed(2)}
+                          </td>
+                          <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-900">
+                            ${product.price?.toFixed(2)}
+                          </td>
+                          <td className="px-4 py-4 whitespace-nowrap">
+                            <span
+                              className={`px-2 py-1 text-xs rounded ${
+                                product.stock > 10
+                                  ? "bg-green-100 text-green-800"
+                                  : product.stock > 0
+                                    ? "bg-yellow-100 text-yellow-800"
+                                    : "bg-red-100 text-red-800"
+                              }`}
+                            >
+                              {product.stock}
+                            </span>
+                          </td>
+                          <td className="px-4 py-4 whitespace-nowrap text-sm font-medium space-x-2">
+                            <button
+                              onClick={() => handleEditProduct(product)}
+                              className="text-blue-600 hover:text-blue-900"
+                            >
+                              <FaEdit />
+                            </button>
+                            <button
+                              onClick={() => handleDeleteProduct(product._id)}
+                              className="text-red-600 hover:text-red-900"
+                            >
+                              <FaTrash />
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
 
-                {visibleProducts.length === 0 && (
-                  <div className="border-t p-8 text-center text-gray-400">
-                    No products found in this category yet.
-                  </div>
-                )}
-                  </div>
+                  {products.length === 0 && (
+                    <div className="border-t p-8 text-center text-gray-400">
+                      No products found yet.
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
@@ -4205,11 +4129,11 @@ const AdminDashboard = () => {
             </div>
             <div className="p-6">
               <CreateProduct
-                initialCategory={selectedProductCategory || ""}
+                initialCategory=""
                 onClose={() => setShowAddProductModal(false)}
                 onSuccess={() => {
                   setShowAddProductModal(false);
-                  dispatch(fetchProducts()); // Refresh products list
+                  dispatch(fetchProducts({ includeDraft: true })); // Refresh products list
                 }}
               />
             </div>
@@ -4257,7 +4181,7 @@ const AdminDashboard = () => {
                 onSuccess={() => {
                   setShowEditProductModal(false);
                   setEditingProduct(null);
-                  dispatch(fetchProducts()); // Refresh products list
+                  dispatch(fetchProducts({ includeDraft: true })); // Refresh products list
                 }}
               />
             </div>

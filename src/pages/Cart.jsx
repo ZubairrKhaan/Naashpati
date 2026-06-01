@@ -140,7 +140,7 @@ const Cart = () => {
                 {orderSummary.customerName || "N/A"}
               </p>
               <p className="mt-1">
-                <span className="font-semibold">Total amount:</span> Rs. 
+                <span className="font-semibold">Total amount:</span> Rs.
                 {Number(orderSummary.totalAmount || 0).toFixed(2)}
               </p>
               <p className="mt-1">
@@ -225,7 +225,9 @@ const Cart = () => {
                       {item.product.name}
                     </h3>
                     <p className="mb-4 text-sm text-gray-600 line-clamp-2">
-                      {item.product.description}
+                      {item.product.shortDescription ||
+                        item.product.briefDescriptionPoints?.[0] ||
+                        ""}
                     </p>
 
                     <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">

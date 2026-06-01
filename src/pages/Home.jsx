@@ -66,7 +66,18 @@ const Home = () => {
 
   useEffect(() => {
     dispatch(fetchCategories({ force: true }));
-    dispatch(fetchProducts());
+    dispatch(
+      fetchProducts({
+        page: 1,
+        limit: 500,
+        search: "",
+        category: "all",
+        minPrice: "",
+        maxPrice: "",
+        sort: "newest",
+        showOnHomeBanner: true,
+      }),
+    );
     dispatch(fetchHeroSlides());
     dispatch(fetchHeroBadges());
   }, [dispatch]);

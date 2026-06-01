@@ -12,28 +12,87 @@ import {
 } from "../services/inventoryService.js";
 
 const normalizeSku = (value = "") => String(value).trim().toUpperCase();
+const normalizeBarcode = (value = "") => {
+  const raw = String(value || "").trim();
+  if (!raw) return "";
+  return raw;
+};
 
-const normalizeProductType = (value = "general") =>
-  ["general", "detailed"].includes(value) ? value : "general";
+const toSlug = (value = "") =>
+  String(value)
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9\s-]/g, "")
+    .replace(/\s+/g, "-")
+    .replace(/-+/g, "-")
+    .replace(/^-|-$/g, "")
+    .slice(0, 160);
 
-const sanitizeProductByType = (payload = {}) => {
-  if (payload.productType !== "detailed") {
-    return {
-      ...payload,
-      briefDescription: "",
-      briefDescriptionPoints: [],
-      directions: [],
-      servingSize: "",
-      instructionsContent: "",
-      faqContent: "",
-      qualityPromiseContent: "",
-      ingredients: [],
-      helpsTo: "",
-    };
+const hasOwn = (obj, key) =>
+  Object.prototype.hasOwnProperty.call(obj || {}, key);
+
+const normalizeStringArray = (value) => {
+  if (Array.isArray(value)) {
+    return value.map((item) => String(item || "").trim()).filter(Boolean);
   }
 
-  return payload;
+  if (typeof value === "string") {
+    return value
+      .split(",")
+      .map((item) => item.trim())
+      .filter(Boolean);
+  }
+
+  return [];
 };
+
+const normalizeBoolean = (value, fallback = false) => {
+  if (typeof value === "boolean") return value;
+  if (typeof value === "string") {
+    const normalized = value.trim().toLowerCase();
+    if (["true", "1", "yes"].includes(normalized)) return true;
+    if (["false", "0", "no"].includes(normalized)) return false;
+  }
+  return fallback;
+};
+
+const normalizeNumber = (value, fallback = 0) => {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : fallback;
+};
+
+const normalizeAttributes = (value = {}) => ({
+  color: String(value?.color || "").trim(),
+  material: String(value?.material || "").trim(),
+  size: String(value?.size || "").trim(),
+  lensType: String(value?.lensType || "").trim(),
+  uvProtection: String(value?.uvProtection || "").trim(),
+  frameMaterial: String(value?.frameMaterial || "").trim(),
+  author: String(value?.author || "").trim(),
+  pages:
+    value?.pages === null || value?.pages === undefined || value?.pages === ""
+      ? null
+      : Math.max(0, normalizeNumber(value.pages, 0)),
+  language: String(value?.language || "").trim(),
+  bottleCapacity: String(value?.bottleCapacity || "").trim(),
+  dimensions: String(value?.dimensions || "").trim(),
+});
+
+const normalizeShipping = (value = {}) => ({
+  weight: Math.max(0, normalizeNumber(value?.weight, 0)),
+  length: Math.max(0, normalizeNumber(value?.length, 0)),
+  width: Math.max(0, normalizeNumber(value?.width, 0)),
+  height: Math.max(0, normalizeNumber(value?.height, 0)),
+  freeShipping: normalizeBoolean(value?.freeShipping, false),
+});
+
+const normalizeSeo = (seo = {}, seoKeywordsInput) => ({
+  metaTitle: String(seo?.metaTitle || "").trim(),
+  metaDescription: String(seo?.metaDescription || "").trim(),
+  seoKeywords: normalizeStringArray(
+    seoKeywordsInput !== undefined ? seoKeywordsInput : seo?.seoKeywords,
+  ),
+});
 
 const escapeRegex = (value = "") =>
   String(value).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -53,6 +112,45 @@ const isSkuDuplicate = async (sku, excludeProductId = null) => {
 
   const existingProduct = await Product.findOne(query).select("_id").lean();
   return Boolean(existingProduct);
+};
+
+const isBarcodeDuplicate = async (barcode, excludeProductId = null) => {
+  const normalized = String(barcode || "").trim();
+  if (!normalized) return false;
+
+  const query = { barcode: normalized };
+  if (excludeProductId) {
+    query._id = { $ne: excludeProductId };
+  }
+
+  const existingProduct = await Product.findOne(query).select("_id").lean();
+  return Boolean(existingProduct);
+};
+
+const generateUniqueSlug = async (seedValue, excludeProductId = null) => {
+  const baseSlug = toSlug(seedValue);
+  if (!baseSlug) {
+    return "";
+  }
+
+  for (let suffix = 0; suffix < 50; suffix += 1) {
+    const candidate =
+      suffix === 0
+        ? baseSlug
+        : `${baseSlug.slice(0, Math.max(1, 155 - String(suffix).length))}-${suffix}`;
+
+    const query = { slug: candidate };
+    if (excludeProductId) {
+      query._id = { $ne: excludeProductId };
+    }
+
+    const exists = await Product.findOne(query).select("_id").lean();
+    if (!exists) {
+      return candidate;
+    }
+  }
+
+  return `${baseSlug}-${Date.now().toString().slice(-6)}`;
 };
 
 const isTransactionUnsupportedError = (error) => {
@@ -85,7 +183,15 @@ export const getProducts = async (req, res) => {
     const skip = (page - 1) * limit;
 
     // Build query
-    let query = { isActive: true };
+    const query = { isActive: true };
+
+    if (req.query.includeDraft !== "true") {
+      query.status = { $ne: "draft" };
+    }
+
+    if (req.query.status && ["draft", "published"].includes(req.query.status)) {
+      query.status = req.query.status;
+    }
 
     // Search
     if (req.query.search) {
@@ -95,6 +201,10 @@ export const getProducts = async (req, res) => {
     // Category filter
     if (req.query.category && req.query.category !== "all") {
       query.category = req.query.category;
+    }
+
+    if (req.query.showOnHomeBanner === "true") {
+      query.showOnHomeBanner = true;
     }
 
     // Price filter
@@ -162,16 +272,19 @@ export const getProducts = async (req, res) => {
 // @access  Public
 export const getProduct = async (req, res) => {
   try {
-    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
-      return res.status(400).json({
-        success: false,
-        error: "Invalid product id",
-      });
-    }
+    const identifier = String(req.params.id || "").trim();
+    const isObjectId = mongoose.Types.ObjectId.isValid(identifier);
 
-    const product = await Product.findById(req.params.id);
+    const product = isObjectId
+      ? await Product.findById(identifier)
+      : await Product.findOne({ slug: identifier.toLowerCase() });
 
-    if (!product || !product.isActive) {
+    const canViewDraft = req.user?.role === "admin";
+    if (
+      !product ||
+      !product.isActive ||
+      (product.status === "draft" && !canViewDraft)
+    ) {
       return res.status(404).json({
         success: false,
         error: "Product not found",
@@ -212,14 +325,54 @@ export const createProduct = async (req, res) => {
   try {
     let createdProduct;
 
+    const incomingBody = req.body || {};
+
     const payload = {
-      ...req.body,
-      productType: normalizeProductType(req.body.productType),
+      ...incomingBody,
       sku: normalizeSku(req.body.sku),
-      stock: Number(req.body.stock || 0),
+      stock: normalizeNumber(req.body.stock || 0, 0),
+      shortDescription: String(incomingBody.shortDescription || "")
+        .trim()
+        .slice(0, 300),
+      subcategory: String(incomingBody.subcategory || "").trim(),
+      brand: String(incomingBody.brand || "").trim(),
+      tags: normalizeStringArray(incomingBody.tags),
+      price: normalizeNumber(incomingBody.price ?? incomingBody.salePrice, 0),
+      salePrice: normalizeNumber(
+        incomingBody.salePrice ?? incomingBody.price,
+        0,
+      ),
+      originalPrice: normalizeNumber(
+        incomingBody.originalPrice ?? incomingBody.price,
+        0,
+      ),
+      barcode: normalizeBarcode(incomingBody.barcode),
+      thumbnail: String(
+        incomingBody.thumbnail || incomingBody.image || "",
+      ).trim(),
+      image: String(incomingBody.image || incomingBody.thumbnail || "").trim(),
+      videoUrl: String(incomingBody.videoUrl || "").trim(),
+      featured: normalizeBoolean(incomingBody.featured, false),
+      trending: normalizeBoolean(incomingBody.trending, false),
+      bestseller: normalizeBoolean(incomingBody.bestseller, false),
+      newArrival: normalizeBoolean(incomingBody.newArrival, false),
+      status: ["draft", "published"].includes(incomingBody.status)
+        ? incomingBody.status
+        : "published",
+      attributes: normalizeAttributes(incomingBody.attributes),
+      shipping: normalizeShipping(incomingBody.shipping),
+      seo: normalizeSeo(incomingBody.seo, incomingBody.seoKeywords),
     };
 
-    const normalizedPayload = sanitizeProductByType(payload);
+    if (!hasOwn(incomingBody, "isActive")) {
+      payload.isActive = payload.status === "published";
+    }
+
+    payload.slug = await generateUniqueSlug(
+      incomingBody.slug || incomingBody.name,
+    );
+
+    const normalizedPayload = payload;
 
     if (await isSkuDuplicate(normalizedPayload.sku)) {
       return res.status(409).json({
@@ -228,11 +381,20 @@ export const createProduct = async (req, res) => {
       });
     }
 
+    if (await isBarcodeDuplicate(normalizedPayload.barcode)) {
+      return res.status(409).json({
+        success: false,
+        error: "Barcode already exists. Please use a unique barcode.",
+      });
+    }
+
     const createWithSession = async () => {
       const session = await mongoose.startSession();
       try {
         await session.withTransaction(async () => {
-          const product = await Product.create([normalizedPayload], { session });
+          const product = await Product.create([normalizedPayload], {
+            session,
+          });
           createdProduct = product[0];
 
           if (normalizedPayload.stock > 0) {
@@ -304,6 +466,20 @@ export const createProduct = async (req, res) => {
       });
     }
 
+    if (error?.code === 11000 && error?.keyPattern?.barcode) {
+      return res.status(400).json({
+        success: false,
+        error: "Barcode already exists. Please use a unique barcode.",
+      });
+    }
+
+    if (error?.code === 11000 && error?.keyPattern?.slug) {
+      return res.status(400).json({
+        success: false,
+        error: "Slug already exists. Please use a unique slug.",
+      });
+    }
+
     console.error("Product creation error:", error);
     res.status(500).json({
       success: false,
@@ -342,20 +518,140 @@ export const updateProduct = async (req, res) => {
       });
     }
 
+    const incomingBody = req.body || {};
+
     const payload = {
-      ...req.body,
-      productType: normalizeProductType(req.body.productType),
+      ...incomingBody,
     };
 
-    const normalizedPayload = sanitizeProductByType(payload);
+    if (hasOwn(incomingBody, "sku")) {
+      payload.sku = normalizeSku(incomingBody.sku);
+    }
 
-    if (typeof req.body.sku === "string") {
-      normalizedPayload.sku = normalizeSku(req.body.sku);
+    if (hasOwn(incomingBody, "price") || hasOwn(incomingBody, "salePrice")) {
+      const priceValue = hasOwn(incomingBody, "price")
+        ? incomingBody.price
+        : incomingBody.salePrice;
+      const salePriceValue = hasOwn(incomingBody, "salePrice")
+        ? incomingBody.salePrice
+        : incomingBody.price;
 
+      payload.price = normalizeNumber(priceValue, Number(product.price || 0));
+      payload.salePrice = normalizeNumber(
+        salePriceValue,
+        Number(product.salePrice || product.price || 0),
+      );
+    }
+
+    if (hasOwn(incomingBody, "originalPrice")) {
+      payload.originalPrice = normalizeNumber(
+        incomingBody.originalPrice,
+        Number(product.originalPrice || product.price || 0),
+      );
+    }
+
+    if (hasOwn(incomingBody, "shortDescription")) {
+      payload.shortDescription = String(incomingBody.shortDescription || "")
+        .trim()
+        .slice(0, 300);
+    }
+
+    if (hasOwn(incomingBody, "subcategory")) {
+      payload.subcategory = String(incomingBody.subcategory || "").trim();
+    }
+
+    if (hasOwn(incomingBody, "brand")) {
+      payload.brand = String(incomingBody.brand || "").trim();
+    }
+
+    if (hasOwn(incomingBody, "tags")) {
+      payload.tags = normalizeStringArray(incomingBody.tags);
+    }
+
+    if (hasOwn(incomingBody, "barcode")) {
+      payload.barcode = normalizeBarcode(incomingBody.barcode);
+    }
+
+    if (hasOwn(incomingBody, "thumbnail") || hasOwn(incomingBody, "image")) {
+      payload.thumbnail = String(
+        incomingBody.thumbnail ?? incomingBody.image ?? product.thumbnail ?? "",
+      ).trim();
+      payload.image = String(
+        incomingBody.image ?? incomingBody.thumbnail ?? product.image ?? "",
+      ).trim();
+    }
+
+    if (hasOwn(incomingBody, "videoUrl")) {
+      payload.videoUrl = String(incomingBody.videoUrl || "").trim();
+    }
+
+    if (hasOwn(incomingBody, "featured")) {
+      payload.featured = normalizeBoolean(incomingBody.featured, false);
+    }
+
+    if (hasOwn(incomingBody, "trending")) {
+      payload.trending = normalizeBoolean(incomingBody.trending, false);
+    }
+
+    if (hasOwn(incomingBody, "bestseller")) {
+      payload.bestseller = normalizeBoolean(incomingBody.bestseller, false);
+    }
+
+    if (hasOwn(incomingBody, "newArrival")) {
+      payload.newArrival = normalizeBoolean(incomingBody.newArrival, false);
+    }
+
+    if (hasOwn(incomingBody, "status")) {
+      payload.status = ["draft", "published"].includes(incomingBody.status)
+        ? incomingBody.status
+        : product.status || "published";
+      if (!hasOwn(incomingBody, "isActive")) {
+        payload.isActive = payload.status === "published";
+      }
+    }
+
+    if (hasOwn(incomingBody, "attributes")) {
+      payload.attributes = normalizeAttributes(incomingBody.attributes);
+    }
+
+    if (hasOwn(incomingBody, "shipping")) {
+      payload.shipping = normalizeShipping(incomingBody.shipping);
+    }
+
+    if (hasOwn(incomingBody, "seo") || hasOwn(incomingBody, "seoKeywords")) {
+      payload.seo = normalizeSeo(incomingBody.seo, incomingBody.seoKeywords);
+    }
+
+    if (hasOwn(incomingBody, "stock")) {
+      payload.stock = normalizeNumber(
+        incomingBody.stock,
+        Number(product.stock || 0),
+      );
+    }
+
+    if (hasOwn(incomingBody, "slug") || hasOwn(incomingBody, "name")) {
+      payload.slug = await generateUniqueSlug(
+        incomingBody.slug || incomingBody.name || product.name,
+        product._id,
+      );
+    }
+
+    const normalizedPayload = payload;
+
+    if (typeof normalizedPayload.sku === "string") {
       if (await isSkuDuplicate(normalizedPayload.sku, req.params.id)) {
         return res.status(409).json({
           success: false,
           error: "SKU already exists. Please use a unique SKU.",
+        });
+      }
+    }
+
+    if (typeof normalizedPayload.barcode === "string") {
+      if (await isBarcodeDuplicate(normalizedPayload.barcode, req.params.id)) {
+        return res.status(409).json({
+          success: false,
+          error: "Barcode already exists. Please use a unique barcode.",
         });
       }
     }
@@ -413,10 +709,14 @@ export const updateProduct = async (req, res) => {
 
       delete normalizedPayload.stock;
 
-      updatedProduct = await Product.findByIdAndUpdate(req.params.id, normalizedPayload, {
-        new: true,
-        runValidators: true,
-      });
+      updatedProduct = await Product.findByIdAndUpdate(
+        req.params.id,
+        normalizedPayload,
+        {
+          new: true,
+          runValidators: true,
+        },
+      );
     }
 
     const stockMap = await getStockTotalsByProductIds([updatedProduct._id]);
@@ -431,6 +731,20 @@ export const updateProduct = async (req, res) => {
       return res.status(400).json({
         success: false,
         error: "SKU already exists. Please use a unique SKU.",
+      });
+    }
+
+    if (error?.code === 11000 && error?.keyPattern?.barcode) {
+      return res.status(400).json({
+        success: false,
+        error: "Barcode already exists. Please use a unique barcode.",
+      });
+    }
+
+    if (error?.code === 11000 && error?.keyPattern?.slug) {
+      return res.status(400).json({
+        success: false,
+        error: "Slug already exists. Please use a unique slug.",
       });
     }
 

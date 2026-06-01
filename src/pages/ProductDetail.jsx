@@ -9,8 +9,9 @@ import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import {
-  //   fetchProductById,
+  fetchProducts,
   selectProduct,
+  selectProducts,
   selectProductsStatus,
   selectProductsError,
   fetchProduct,
@@ -45,6 +46,7 @@ const ProductDetail = () => {
   const navigate = useNavigate();
   const dispatch = useDispatch();
   const product = useSelector(selectProduct);
+  const productList = useSelector(selectProducts);
   const status = useSelector(selectProductsStatus);
   const error = useSelector(selectProductsError);
   const isAuthenticated = useSelector(selectIsAuthenticated);
@@ -56,12 +58,10 @@ const ProductDetail = () => {
   const [quantity, setQuantity] = useState(1);
   const [isWishlisted, setIsWishlisted] = useState(false);
   const [expandedSections, setExpandedSections] = useState({
-    ingredients: true,
     faqs: false,
     reviews: false,
     quality: false,
   });
-  const [ingredientsTab, setIngredientsTab] = useState("ingredients");
   const [reviewsTab, setReviewsTab] = useState("reviews");
   const [showReviewForm, setShowReviewForm] = useState(false);
   const [showQuestionForm, setShowQuestionForm] = useState(false);
@@ -125,10 +125,6 @@ const ProductDetail = () => {
     return rawImage;
   };
 
-  const directionsPoints =
-    Array.isArray(product?.directions) && product.directions.length > 0
-      ? product.directions
-      : [];
   const briefDescriptionPoints = Array.isArray(product?.briefDescriptionPoints)
     ? product.briefDescriptionPoints
         .map((point) => String(point).trim())
@@ -138,24 +134,24 @@ const ProductDetail = () => {
         .map((point) => point.trim())
         .filter(Boolean);
 
-  const helpsToPoints = (product?.helpsTo || "")
-    .split(/\r?\n/)
-    .map((point) => point.replace(/^[-*•]\s*/, "").trim())
-    .filter(Boolean);
-
-  const ingredientsRows = Array.isArray(product?.ingredients)
-    ? product.ingredients
-        .map((item) => ({
-          name: String(item?.name || "").trim(),
-          amount: String(item?.amount || "").trim(),
-        }))
-        .filter((item) => item.name || item.amount)
-    : [];
-
-  const servingSizeText = (product?.servingSize || "").trim();
-  const instructionsParagraph = (product?.instructionsContent || "").trim();
   const sanitizedFaqContent = DOMPurify.sanitize(product?.faqContent || "");
   const qualityPromiseParagraph = (product?.qualityPromiseContent || "").trim();
+  const displayPrice = Number(product?.salePrice ?? product?.price ?? 0);
+  const listPrice = Number(product?.originalPrice ?? product?.price ?? 0);
+  const hasDiscount =
+    Number.isFinite(listPrice) &&
+    Number.isFinite(displayPrice) &&
+    listPrice > displayPrice;
+  const discountPercent = hasDiscount
+    ? Math.round(((listPrice - displayPrice) / listPrice) * 100)
+    : 0;
+  const relatedProducts = (productList || [])
+    .filter(
+      (item) =>
+        String(item?._id) !== String(product?._id) &&
+        item?.category === product?.category,
+    )
+    .slice(0, 4);
   const reviewItems = Array.isArray(product?.reviews) ? product.reviews : [];
   const questionItems = Array.isArray(product?.questions)
     ? product.questions
@@ -600,6 +596,12 @@ const ProductDetail = () => {
   }, [dispatch, id]);
 
   useEffect(() => {
+    if (product?.category) {
+      dispatch(fetchProducts({ category: product.category, limit: 12 }));
+    }
+  }, [dispatch, product?.category]);
+
+  useEffect(() => {
     if (product) {
       setSelectedImage(0);
     }
@@ -698,7 +700,7 @@ const ProductDetail = () => {
     if (navigator.share) {
       navigator.share({
         title: product.name,
-        text: product.description,
+        text: product.shortDescription || "",
         url: window.location.href,
       });
     } else {
@@ -811,6 +813,14 @@ const ProductDetail = () => {
               />
             </div>
 
+            {product.videoUrl ? (
+              <video
+                controls
+                className="w-full rounded-lg border border-gray-200"
+                src={resolveMediaUrl(product.videoUrl)}
+              />
+            ) : null}
+
             {/* Thumbnail Images */}
             {product.images && product.images.length > 1 && (
               <div className="flex space-x-2 overflow-x-auto">
@@ -850,18 +860,44 @@ const ProductDetail = () => {
                 </span>
               </div>
 
-              <div className="text-2xl mb-4">${product.price?.toFixed(2)}</div>
+              <div className="mb-4 flex items-center gap-3">
+                <div className="text-2xl font-semibold text-gray-900">
+                  PKR {displayPrice.toFixed(2)}
+                </div>
+                {hasDiscount ? (
+                  <>
+                    <div className="text-base text-gray-400 line-through">
+                      PKR {listPrice.toFixed(2)}
+                    </div>
+                    <span className="rounded-full bg-orange-50 px-2.5 py-1 text-xs font-semibold text-orange-700">
+                      -{discountPercent}% OFF
+                    </span>
+                  </>
+                ) : null}
+              </div>
 
-              {product.helpsTo && (
-                <div className="mb-6 rounded-lg border border-green-100 bg-green-50 px-4 py-3">
-                  <h2 className="text-sm font-semibold uppercase tracking-wide text-green-800">
-                    Helps To
-                  </h2>
-                  <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-green-900">
-                    {helpsToPoints.map((point, index) => (
-                      <li key={`${point}-${index}`}>{point}</li>
-                    ))}
-                  </ul>
+              {(product.subcategory ||
+                product.brand ||
+                (product.tags || []).length > 0) && (
+                <div className="mb-5 flex flex-wrap items-center gap-2 text-xs">
+                  {product.subcategory ? (
+                    <span className="rounded-full bg-gray-100 px-2.5 py-1 text-gray-700">
+                      {product.subcategory}
+                    </span>
+                  ) : null}
+                  {product.brand ? (
+                    <span className="rounded-full bg-blue-50 px-2.5 py-1 text-blue-700">
+                      {product.brand}
+                    </span>
+                  ) : null}
+                  {(product.tags || []).map((tag) => (
+                    <span
+                      key={tag}
+                      className="rounded-full bg-emerald-50 px-2.5 py-1 text-emerald-700"
+                    >
+                      {tag}
+                    </span>
+                  ))}
                 </div>
               )}
             </div>
@@ -952,7 +988,61 @@ const ProductDetail = () => {
                   <span className="font-medium text-gray-600">SKU:</span>
                   <p>{product.sku || "N/A"}</p>
                 </div>
+                {product.barcode ? (
+                  <div>
+                    <span className="font-medium text-gray-600">Barcode:</span>
+                    <p>{product.barcode}</p>
+                  </div>
+                ) : null}
               </div>
+
+              {product.attributes && (
+                <div className="mt-6">
+                  <h4 className="text-sm font-semibold uppercase tracking-wide text-gray-700">
+                    Specifications
+                  </h4>
+                  <div className="mt-2 grid grid-cols-1 gap-2 text-sm text-gray-700 sm:grid-cols-2">
+                    {Object.entries(product.attributes)
+                      .filter(
+                        ([, value]) =>
+                          value !== "" && value !== null && value !== undefined,
+                      )
+                      .map(([key, value]) => (
+                        <div
+                          key={key}
+                          className="rounded-md bg-gray-50 px-3 py-2"
+                        >
+                          <span className="font-medium capitalize">
+                            {key.replace(/([A-Z])/g, " $1")}:
+                          </span>
+                          <span>{String(value)}</span>
+                        </div>
+                      ))}
+                  </div>
+                </div>
+              )}
+
+              {product.shipping && (
+                <div className="mt-6 rounded-lg border border-gray-100 bg-gray-50 p-4 text-sm text-gray-700">
+                  <h4 className="text-sm font-semibold uppercase tracking-wide text-gray-700">
+                    Shipping
+                  </h4>
+                  <p className="mt-2">
+                    Weight: {Number(product.shipping.weight || 0).toFixed(2)} kg
+                  </p>
+                  <p>
+                    Dimensions:{" "}
+                    {Number(product.shipping.length || 0).toFixed(2)} x{" "}
+                    {Number(product.shipping.width || 0).toFixed(2)} x{" "}
+                    {Number(product.shipping.height || 0).toFixed(2)}
+                  </p>
+                  <p>
+                    {product.shipping.freeShipping
+                      ? "Eligible for free shipping"
+                      : "Shipping charges may apply"}
+                  </p>
+                </div>
+              )}
 
               <div className="mt-6">
                 <h4 className="text-sm font-semibold uppercase tracking-wide text-gray-700">
@@ -966,128 +1056,11 @@ const ProductDetail = () => {
                   </ul>
                 ) : (
                   <p className="mt-2 text-sm text-gray-600">
-                    {product.description || "N/A"}
+                    {product.shortDescription || "N/A"}
                   </p>
                 )}
               </div>
-
-              {directionsPoints.length > 0 && (
-                <div className="mt-6">
-                  <h4 className="text-sm font-semibold uppercase tracking-wide text-gray-700">
-                    Directions
-                  </h4>
-                  <ol className="mt-2 list-decimal space-y-1 pl-5 text-sm text-gray-600">
-                    {directionsPoints.map((step, index) => (
-                      <li key={`dir-${index}`}>{step}</li>
-                    ))}
-                  </ol>
-                </div>
-              )}
-
               <div className="mt-6 border-t border-gray-200 pt-4">
-                <button
-                  type="button"
-                  onClick={() => toggleSection("ingredients")}
-                  className="flex w-full items-center justify-between border-0 py-2 text-left focus:outline-none"
-                >
-                  <h4 className="text-sm font-semibold uppercase tracking-wide text-gray-700">
-                    Ingredients
-                  </h4>
-                  {expandedSections.ingredients ? (
-                    <FaChevronUp className="text-gray-500" />
-                  ) : (
-                    <FaChevronDown className="text-gray-500" />
-                  )}
-                </button>
-
-                <div
-                  className={`grid transition-all duration-300 ease-in-out ${expandedSections.ingredients ? "grid-rows-[1fr]" : "grid-rows-[0fr]"}`}
-                >
-                  <div className="overflow-hidden">
-                    <div className="mt-3 border border-gray-200 bg-white">
-                      <div className="grid grid-cols-2 bg-gray-50">
-                        <button
-                          type="button"
-                          onClick={() => setIngredientsTab("ingredients")}
-                          className={`group relative border-0 px-4 py-3 text-center text-sm font-semibold transition-colors focus:outline-none ${
-                            ingredientsTab === "ingredients"
-                              ? "text-gray-900"
-                              : "text-gray-500 hover:text-gray-900"
-                          }`}
-                        >
-                          Ingredients
-                          <span
-                            className={`absolute bottom-0 left-0 h-0.5 bg-gray-900 transition-all duration-300 ${
-                              ingredientsTab === "ingredients"
-                                ? "w-full"
-                                : "w-0"
-                            }`}
-                          />
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setIngredientsTab("instructions")}
-                          className={`group relative border-0 px-4 py-3 text-center text-sm font-semibold transition-colors focus:outline-none ${
-                            ingredientsTab === "instructions"
-                              ? "text-gray-900"
-                              : "text-gray-500 hover:text-gray-900"
-                          }`}
-                        >
-                          Instructions
-                          <span
-                            className={`absolute bottom-0 left-0 h-0.5 bg-gray-900 transition-all duration-300 ${
-                              ingredientsTab === "instructions"
-                                ? "w-full"
-                                : "w-0"
-                            }`}
-                          />
-                        </button>
-                      </div>
-
-                      <div className="px-6 py-5 text-sm text-gray-700">
-                        {ingredientsTab === "ingredients" ? (
-                          <>
-                            {servingSizeText ? (
-                              <p className="mb-4 text-center font-medium">
-                                Serving Size: {servingSizeText}
-                              </p>
-                            ) : null}
-                            {ingredientsRows.length > 0 ? (
-                              <div className="space-y-3">
-                                {ingredientsRows.map((row, index) => (
-                                  <div
-                                    key={`ingredient-row-${index}`}
-                                    className="flex items-center justify-between border-b border-gray-100 pb-3"
-                                  >
-                                    <span>{row.name || "-"}</span>
-                                    <span className="font-medium">
-                                      {row.amount || "-"}
-                                    </span>
-                                  </div>
-                                ))}
-                              </div>
-                            ) : (
-                              <p className="text-center text-gray-500">
-                                Ingredients not added yet.
-                              </p>
-                            )}
-                          </>
-                        ) : (
-                          <div className="space-y-2">
-                            {instructionsParagraph ? (
-                              <p className="whitespace-pre-line leading-6 text-gray-700">
-                                {instructionsParagraph}
-                              </p>
-                            ) : (
-                              <p>No instructions added for this product yet.</p>
-                            )}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
                 <div className="mt-4 border-t border-gray-200">
                   <button
                     type="button"
@@ -1731,6 +1704,47 @@ const ProductDetail = () => {
             </div>
           </div>
         </div>
+
+        {relatedProducts.length > 0 ? (
+          <div className="mt-12 border-t border-gray-200 pt-8">
+            <h2 className="text-xl font-semibold text-gray-900">
+              Related Products
+            </h2>
+            <div className="mt-5 grid grid-cols-2 gap-4 md:grid-cols-4">
+              {relatedProducts.map((relatedProduct) => (
+                <button
+                  key={relatedProduct._id}
+                  type="button"
+                  onClick={() =>
+                    navigate(
+                      `/products/${relatedProduct.slug || relatedProduct._id}`,
+                    )
+                  }
+                  className="text-left"
+                >
+                  <div className="overflow-hidden rounded-lg border border-gray-200 bg-white">
+                    <img
+                      src={getPrimaryProductImage(relatedProduct)}
+                      alt={relatedProduct.name}
+                      className="h-36 w-full object-cover"
+                    />
+                    <div className="p-3">
+                      <p className="line-clamp-1 text-sm font-semibold text-gray-900">
+                        {relatedProduct.name}
+                      </p>
+                      <p className="mt-1 text-sm text-[#68a300]">
+                        PKR{" "}
+                        {Number(
+                          relatedProduct.salePrice ?? relatedProduct.price ?? 0,
+                        ).toFixed(2)}
+                      </p>
+                    </div>
+                  </div>
+                </button>
+              ))}
+            </div>
+          </div>
+        ) : null}
       </div>
     </div>
   );

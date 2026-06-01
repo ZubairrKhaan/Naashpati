@@ -183,31 +183,39 @@ export const adjustStockToTarget = async (
   { session, costPrice, purchaseDate } = {},
 ) => {
   const productId = product._id || product;
-  const stockMap = await getStockTotalsByProductIds([productId], session);
-  const currentTotal = stockMap.get(String(productId)) || 0;
   const normalizedTarget = toNumber(targetStock, 0);
 
-  if (normalizedTarget === currentTotal) {
-    return currentTotal;
+  // In standalone MongoDB mode (without transactions), concurrent order writes
+  // can happen between read/adjust steps. Reconcile a few times to reach target.
+  let latestTotal = 0;
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    const stockMap = await getStockTotalsByProductIds([productId], session);
+    latestTotal = stockMap.get(String(productId)) || 0;
+
+    if (latestTotal === normalizedTarget) {
+      return latestTotal;
+    }
+
+    if (normalizedTarget > latestTotal) {
+      const delta = normalizedTarget - latestTotal;
+      await createBatchRecord(
+        {
+          productId,
+          batchNumber: `ADJ-${Date.now()}-${attempt}`,
+          quantity: delta,
+          costPrice: toNumber(costPrice, product.costPrice || 0),
+          purchaseDate: purchaseDate || new Date(),
+          expiryDate: null,
+        },
+        session,
+      );
+      continue;
+    }
+
+    const reduction = latestTotal - normalizedTarget;
+    await deductStockFIFO(productId, reduction, session);
   }
 
-  if (normalizedTarget > currentTotal) {
-    const delta = normalizedTarget - currentTotal;
-    await createBatchRecord(
-      {
-        productId,
-        batchNumber: `ADJ-${Date.now()}`,
-        quantity: delta,
-        costPrice: toNumber(costPrice, product.costPrice || 0),
-        purchaseDate: purchaseDate || new Date(),
-        expiryDate: null,
-      },
-      session,
-    );
-    return normalizedTarget;
-  }
-
-  const reduction = currentTotal - normalizedTarget;
-  await deductStockFIFO(productId, reduction, session);
-  return normalizedTarget;
+  const finalStockMap = await getStockTotalsByProductIds([productId], session);
+  return finalStockMap.get(String(productId)) || 0;
 };

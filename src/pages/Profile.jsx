@@ -127,7 +127,11 @@ const Profile = () => {
   }, [requestedTab]);
 
   useEffect(() => {
-    if (activeTab !== "orders" || !requestedOrderId || userOrders.length === 0) {
+    if (
+      activeTab !== "orders" ||
+      !requestedOrderId ||
+      userOrders.length === 0
+    ) {
       return;
     }
 
@@ -142,7 +146,9 @@ const Profile = () => {
     const matchedOrderId = String(matchedOrder._id);
     setHighlightedOrderId(matchedOrderId);
 
-    const targetElement = document.getElementById(`profile-order-${matchedOrderId}`);
+    const targetElement = document.getElementById(
+      `profile-order-${matchedOrderId}`,
+    );
     if (targetElement) {
       targetElement.scrollIntoView({ behavior: "smooth", block: "center" });
     }
@@ -573,7 +579,7 @@ const Profile = () => {
             name: item?.product?.name || item?.name || "Product",
             image: item?.product?.image || item?.image || "",
             images: item?.product?.images || [],
-            description: item?.product?.description || "",
+            description: item?.product?.shortDescription || "",
             price: Number(item?.price || 0),
             stock: Number(item?.product?.stock || 9999),
           },
@@ -1752,7 +1758,6 @@ const Profile = () => {
                 </div>
               </div>
             )}
-
           </div>
         </div>
       </div>

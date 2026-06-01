@@ -1,8 +1,8 @@
 // Helper to resolve image/media URLs (handles absolute and relative paths)
-const resolveMediaUrl = (url) => {
+const resolveMediaUrl = (url, serverUrl) => {
   if (!url) return "/placeholder-product.jpg";
   if (url.startsWith("http://") || url.startsWith("https://")) return url;
-  if (url.startsWith("/uploads/")) return `${SERVER_URL}${url}`;
+  if (url.startsWith("/uploads/")) return `${serverUrl}${url}`;
   return url;
 };
 import { Link } from "react-router-dom";
@@ -20,9 +20,27 @@ const ProductCard = ({ product, viewMode = "grid" }) => {
   const reviewCount = product.numReviews ?? product.reviewCount ?? 0;
   const API_URL = import.meta.env.VITE_API_URL || "/api";
   const SERVER_URL = API_URL.replace(/\/api\/?$/, "");
+  const productUrl = `/products/${product.slug || product._id}`;
+  const salePrice = Number(product.salePrice ?? product.price ?? 0);
+  const originalPrice = Number(product.originalPrice ?? product.price ?? 0);
+  const hasDiscount =
+    Number.isFinite(originalPrice) &&
+    Number.isFinite(salePrice) &&
+    originalPrice > salePrice;
+  const discountPercent = hasDiscount
+    ? Math.round(((originalPrice - salePrice) / originalPrice) * 100)
+    : 0;
   const productImage = product.image
-    ? resolveMediaUrl(product.image)
-    : resolveMediaUrl(product.images?.[0]?.url || product.images?.[0]);
+    ? resolveMediaUrl(product.image, SERVER_URL)
+    : resolveMediaUrl(
+        product.images?.[0]?.url || product.images?.[0],
+        SERVER_URL,
+      );
+  const summaryText =
+    product.shortDescription ||
+    product.briefDescriptionPoints?.[0] ||
+    product.briefDescription ||
+    "";
 
   const handleAddToCart = (e) => {
     e.preventDefault();
@@ -58,7 +76,7 @@ const ProductCard = ({ product, viewMode = "grid" }) => {
   if (viewMode === "list") {
     return (
       <Link
-        to={`/products/${product._id}`}
+        to={productUrl}
         className="group flex flex-col overflow-hidden rounded-lg bg-white shadow-soft transition-shadow duration-300 hover:shadow-large sm:flex-row"
       >
         <div className="h-52 w-full overflow-hidden sm:h-auto sm:w-56">
@@ -84,9 +102,30 @@ const ProductCard = ({ product, viewMode = "grid" }) => {
               </span>
             </div>
 
-            <p className="mb-4 line-clamp-2 text-sm text-secondary-600">
-              {product.description}
+            <p className="mb-2 line-clamp-2 text-sm text-secondary-600">
+              {summaryText}
             </p>
+            <div className="mb-3 flex flex-wrap items-center gap-2 text-xs">
+              {product.category ? (
+                <span className="rounded-full bg-emerald-50 px-2 py-1 font-medium text-emerald-700">
+                  {product.category}
+                </span>
+              ) : null}
+              <span
+                className={`rounded-full px-2 py-1 font-medium ${
+                  product.stock > 0
+                    ? "bg-green-50 text-green-700"
+                    : "bg-red-50 text-red-700"
+                }`}
+              >
+                {product.stock > 0 ? `Stock: ${product.stock}` : "Out of stock"}
+              </span>
+              {hasDiscount ? (
+                <span className="rounded-full bg-orange-50 px-2 py-1 font-semibold text-orange-700">
+                  -{discountPercent}%
+                </span>
+              ) : null}
+            </div>
           </div>
 
           <div className="flex items-center justify-between">
@@ -94,8 +133,13 @@ const ProductCard = ({ product, viewMode = "grid" }) => {
               <span className="mr-1 text-xs align-super text-black-100">
                 PKR
               </span>
-              {product.price.toFixed(2)}
+              {salePrice.toFixed(2)}
             </span>
+            {hasDiscount ? (
+              <span className="text-sm text-gray-400 line-through">
+                PKR {originalPrice.toFixed(2)}
+              </span>
+            ) : null}
 
             <button
               onClick={handleAddToCart}
@@ -118,7 +162,7 @@ const ProductCard = ({ product, viewMode = "grid" }) => {
   if (viewMode === "compact") {
     return (
       <Link
-        to={`/products/${product._id}`}
+        to={productUrl}
         className="group overflow-hidden rounded-lg bg-white shadow-soft transition-shadow duration-300 hover:shadow-large"
       >
         <div className="aspect-[4/3] overflow-hidden">
@@ -135,7 +179,7 @@ const ProductCard = ({ product, viewMode = "grid" }) => {
           </h3>
 
           <p className="mb-2 line-clamp-2 text-xs text-secondary-600">
-            {product.description}
+            {summaryText}
           </p>
 
           <div className="mb-2 flex items-center">
@@ -150,8 +194,13 @@ const ProductCard = ({ product, viewMode = "grid" }) => {
               <span className="mr-1 text-[10px] align-super text-black-100">
                 PKR
               </span>
-              {product.price.toFixed(2)}
+              {salePrice.toFixed(2)}
             </span>
+            {hasDiscount ? (
+              <span className="text-[11px] text-gray-400 line-through">
+                {originalPrice.toFixed(2)}
+              </span>
+            ) : null}
 
             <button
               onClick={handleAddToCart}
@@ -174,7 +223,7 @@ const ProductCard = ({ product, viewMode = "grid" }) => {
   if (viewMode === "tiny") {
     return (
       <Link
-        to={`/products/${product._id}`}
+        to={productUrl}
         className="group overflow-hidden rounded-md bg-white shadow-soft transition-shadow duration-300 hover:shadow-large"
       >
         <div className="aspect-square overflow-hidden">
@@ -191,7 +240,7 @@ const ProductCard = ({ product, viewMode = "grid" }) => {
           </h3>
 
           <p className="mb-2 line-clamp-2 text-[11px] text-secondary-600">
-            {product.description}
+            {summaryText}
           </p>
 
           <div className="flex items-center justify-between gap-1">
@@ -199,7 +248,7 @@ const ProductCard = ({ product, viewMode = "grid" }) => {
               <span className="mr-1 text-[9px] align-super text-black-100">
                 PKR
               </span>
-              {product.price.toFixed(2)}
+              {salePrice.toFixed(2)}
             </span>
 
             <button
@@ -218,7 +267,7 @@ const ProductCard = ({ product, viewMode = "grid" }) => {
 
   return (
     <Link
-      to={`/products/${product._id}`}
+      to={productUrl}
       className="group bg-white rounded-lg shadow-soft overflow-hidden hover:shadow-large transition-shadow duration-300"
     >
       <div className="aspect-square overflow-hidden">
@@ -242,14 +291,19 @@ const ProductCard = ({ product, viewMode = "grid" }) => {
         </div>
 
         <p className="text-secondary-600 text-sm mb-3 line-clamp-2">
-          {product.description}
+          {summaryText}
         </p>
 
         <div className="flex items-center justify-between">
           <span className="text-lg">
             <span className="text-xs align-super mr-1 text-black-100">PKR</span>
-            {product.price.toFixed(2)}
+            {salePrice.toFixed(2)}
           </span>
+          {hasDiscount ? (
+            <span className="text-sm text-gray-400 line-through">
+              PKR {originalPrice.toFixed(2)}
+            </span>
+          ) : null}
 
           <button
             onClick={handleAddToCart}
