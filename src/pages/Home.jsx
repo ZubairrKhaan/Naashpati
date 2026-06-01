@@ -1,11 +1,13 @@
 import { Link } from "react-router-dom";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { MdEco, MdShield, MdLocalShipping, MdFavorite } from "react-icons/md";
-import { FaSeedling, FaChevronLeft, FaChevronRight } from "react-icons/fa";
+import { FaSeedling } from "react-icons/fa";
 import {
   fetchCategories,
+  fetchProducts,
   selectCategories,
+  selectProducts,
 } from "../store/slices/productSlice";
 import {
   fetchHeroSlides,
@@ -15,6 +17,7 @@ import {
   fetchHeroBadges,
   selectHeroBadges,
 } from "../store/slices/heroBadgeSlice";
+import ProductCard from "../components/ProductCard";
 import TrendingProducts from "../components/TrendingProducts";
 
 const BADGE_MARQUEE_STYLE = `
@@ -34,10 +37,11 @@ const BADGE_MARQUEE_STYLE = `
 const Home = () => {
   const dispatch = useDispatch();
   const categories = useSelector(selectCategories);
+  const products = useSelector(selectProducts);
   const heroSlides = useSelector(selectHeroSlides);
   const heroCertificateBadges = useSelector(selectHeroBadges);
-  const [currentSlide, setCurrentSlide] = useState(0);
-  const [isTransitionEnabled, setIsTransitionEnabled] = useState(true);
+  const [showBannerProducts, setShowBannerProducts] = useState(false);
+  const bannerProductsRef = useRef(null);
   const API_URL = import.meta.env.VITE_API_URL || "/api";
   const API_ORIGIN = API_URL.replace(/\/api\/?$/, "");
 
@@ -62,156 +66,87 @@ const Home = () => {
 
   useEffect(() => {
     dispatch(fetchCategories({ force: true }));
+    dispatch(fetchProducts());
     dispatch(fetchHeroSlides());
     dispatch(fetchHeroBadges());
   }, [dispatch]);
 
-  const slides = useMemo(() => {
-    if (heroSlides.length > 0) {
-      return heroSlides.map((slide) => ({
-        _id: slide._id,
-        image: toHeroImageUrl(slide.image),
-        title: slide.title || "Pure Health Pure Life",
-        subtitle:
-          slide.subtitle ||
-          "Premium herbal products for a healthier lifestyle.",
-      }));
-    }
+  const sortedProducts = useMemo(
+    () =>
+      [...products]
+        .filter((product) => product.showOnHomeBanner)
+        .sort((a, b) => a.name.localeCompare(b.name)),
+    [products],
+  );
 
-    return [];
-  }, [heroSlides]);
+  const handleBannerClick = () => {
+    setShowBannerProducts(true);
 
-  const loopedSlides = useMemo(() => {
-    if (slides.length <= 1) {
-      return slides;
-    }
-
-    return [...slides, slides[0]];
-  }, [slides]);
-
-  useEffect(() => {
-    setCurrentSlide(0);
-    setIsTransitionEnabled(true);
-  }, [slides.length]);
-
-  useEffect(() => {
-    if (slides.length <= 1) {
-      return undefined;
-    }
-
-    const intervalId = window.setInterval(() => {
-      setCurrentSlide((prev) => prev + 1);
-    }, 3000);
-
-    return () => window.clearInterval(intervalId);
-  }, [slides.length]);
-
-  useEffect(() => {
-    if (slides.length <= 1) {
-      return;
-    }
-
-    if (currentSlide > slides.length) {
-      setIsTransitionEnabled(false);
-      setCurrentSlide(0);
-    }
-  }, [currentSlide, slides.length]);
-
-  const handlePrevSlide = () => {
-    setCurrentSlide((prev) => (prev - 1 + slides.length) % slides.length);
-  };
-
-  const handleNextSlide = () => {
-    setCurrentSlide((prev) => prev + 1);
-  };
-
-  const handleHeroTransitionEnd = () => {
-    if (slides.length <= 1) {
-      return;
-    }
-
-    if (currentSlide === slides.length) {
-      setIsTransitionEnabled(false);
-      setCurrentSlide(0);
-    }
-  };
-
-  useEffect(() => {
-    if (isTransitionEnabled) {
-      return undefined;
-    }
-
-    const frameId = window.requestAnimationFrame(() => {
-      setIsTransitionEnabled(true);
+    window.requestAnimationFrame(() => {
+      bannerProductsRef.current?.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      });
     });
+  };
 
-    return () => window.cancelAnimationFrame(frameId);
-  }, [isTransitionEnabled]);
+  const homeBanner = useMemo(() => {
+    if (!heroSlides.length) {
+      return null;
+    }
+
+    const firstBanner = heroSlides[0];
+    const image = toHeroImageUrl(firstBanner.image);
+
+    return {
+      _id: firstBanner._id,
+      image,
+    };
+  }, [heroSlides]);
 
   return (
     <div className="min-h-screen">
-      {/* Hero */}
-      <section className="relative overflow-hidden">
-        <div className="relative h-[320px] sm:h-[420px] lg:h-[720px]">
-          <div
-            className={`flex h-full ${isTransitionEnabled ? "transition-transform duration-700 ease-in-out" : ""}`}
-            style={{ transform: `translateX(-${currentSlide * 100}%)` }}
-            onTransitionEnd={handleHeroTransitionEnd}
+      {/* Clickable Home Banner */}
+      {homeBanner && (
+        <section className="relative overflow-hidden bg-[#ffffff] px-4 py-6 sm:px-6">
+          <button
+            type="button"
+            onClick={handleBannerClick}
+            className="group mx-auto block w-full max-w-7xl"
+            aria-label="Show products from featured banner"
           >
-            {loopedSlides.map((slide, index) => (
-              <div
-                key={`${slide._id}-${index}`}
-                className="relative h-full min-w-full"
-              >
-                <img
-                  src={slide.image}
-                  alt={slide.title}
-                  className="h-full w-full object-cover"
-                />
-              </div>
-            ))}
-          </div>
+            <div className="relative h-[220px] overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm sm:h-[340px] lg:h-[560px]">
+              <img
+                src={homeBanner.image}
+                alt="Featured collection banner"
+                className="h-full w-full object-cover transition duration-300 group-hover:scale-[1.01]"
+              />
+            </div>
+          </button>
+        </section>
+      )}
 
-          {slides.length > 1 && (
-            <>
-              <button
-                type="button"
-                onClick={handlePrevSlide}
-                className="absolute left-3 top-1/2 z-10 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full bg-white/85 text-gray-700 shadow transition hover:bg-white"
-                aria-label="Previous hero slide"
-              >
-                <FaChevronLeft />
-              </button>
-              <button
-                type="button"
-                onClick={handleNextSlide}
-                className="absolute right-3 top-1/2 z-10 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full bg-white/85 text-gray-700 shadow transition hover:bg-white"
-                aria-label="Next hero slide"
-              >
-                <FaChevronRight />
-              </button>
+      {showBannerProducts && homeBanner && (
+        <section ref={bannerProductsRef} className="bg-[#ffffff] px-6 py-10">
+          <div className="mx-auto max-w-7xl">
+            <h2 className="text-center text-2xl font-bold text-[#232323]">
+              Banner Collection Products
+            </h2>
 
-              <div className="absolute bottom-5 left-1/2 z-10 flex -translate-x-1/2 items-center gap-2">
-                {slides.map((slide, index) => (
-                  <button
-                    key={slide._id}
-                    type="button"
-                    onClick={() => setCurrentSlide(index)}
-                    className={`w-3 h-3 rounded-full border border-black/70 transition p-0 m-0
-                      ${
-                        index === currentSlide % slides.length
-                          ? "bg-[#232323]"
-                          : "bg-none"
-                      }
-                    `}
-                    aria-label={`Go to hero slide ${index + 1}`}
-                  />
+            {sortedProducts.length > 0 ? (
+              <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
+                {sortedProducts.map((product) => (
+                  <ProductCard key={product._id} product={product} />
                 ))}
               </div>
-            </>
-          )}
-        </div>
-      </section>
+            ) : (
+              <p className="mt-6 text-center text-gray-500">
+                No products found yet.
+              </p>
+            )}
+          </div>
+        </section>
+      )}
 
       {/* Certificates Strip */}
       {heroCertificateBadges.length > 0 && (

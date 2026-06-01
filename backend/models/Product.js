@@ -102,6 +102,11 @@ const questionSchema = new mongoose.Schema(
 
 const productSchema = new mongoose.Schema(
   {
+    productType: {
+      type: String,
+      enum: ["general", "detailed"],
+      default: "general",
+    },
     name: {
       type: String,
       required: [true, "Product name is required"],
@@ -262,6 +267,10 @@ const productSchema = new mongoose.Schema(
     isActive: {
       type: Boolean,
       default: true,
+    },
+    showOnHomeBanner: {
+      type: Boolean,
+      default: false,
     },
     // Trending metrics (for weekly tracking)
     totalSales: {

@@ -104,6 +104,7 @@ const AdminDashboard = () => {
   const [showAddProductModal, setShowAddProductModal] = useState(false);
   const [showEditProductModal, setShowEditProductModal] = useState(false);
   const [editingProduct, setEditingProduct] = useState(null);
+  const [selectedProductCategory, setSelectedProductCategory] = useState("");
   const [showAnnouncementModal, setShowAnnouncementModal] = useState(false);
   const [editingAnnouncement, setEditingAnnouncement] = useState(null);
   const [categoryForm, setCategoryForm] = useState({
@@ -563,6 +564,20 @@ const AdminDashboard = () => {
       fetchAboutContent();
     }
   }, [activeTab, dispatch, isAuthenticated, user]);
+
+  useEffect(() => {
+    if (activeTab !== "products" || categories.length === 0) {
+      return;
+    }
+
+    setSelectedProductCategory((prev) => {
+      if (prev && categories.some((category) => category.value === prev)) {
+        return prev;
+      }
+
+      return categories[0].value;
+    });
+  }, [activeTab, categories]);
 
   useEffect(() => {
     if (activeTab !== "batches") return;
@@ -1485,13 +1500,13 @@ const AdminDashboard = () => {
         imageUrl = result.data.url;
         setUploadingCategoryImage(false);
       }
-      await dispatch(
+      const createdCategory = await dispatch(
         createCategory({ ...categoryForm, image: imageUrl }),
       ).unwrap();
       setCategoryForm({ name: "", description: "" });
       setCategoryImageFile(null);
       setCategoryImagePreview(null);
-      toast.success("Category created successfully");
+      toast.success(`${createdCategory.name} created successfully`);
     } catch (error) {
       setUploadingCategoryImage(false);
       toast.error(error || "Failed to create category");
@@ -1752,7 +1767,12 @@ const AdminDashboard = () => {
   const selectedBatchProduct = products.find(
     (product) => product._id === selectedBatchProductId,
   );
-
+  const selectedProductCategoryData = categories.find(
+    (category) => category.value === selectedProductCategory,
+  );
+  const visibleProducts = selectedProductCategory
+    ? products.filter((product) => product.category === selectedProductCategory)
+    : products;
   if (!authChecked || !isAuthenticated || user?.role !== "admin") {
     return <Loader />;
   }
@@ -1840,7 +1860,10 @@ const AdminDashboard = () => {
               onClick={() => setActiveTab("products")}
               className={getTabButtonClass("products")}
             >
-              Products
+              <span className="flex w-full items-center justify-between gap-3">
+                <span>Products</span>
+                <FaPlus className="text-xs opacity-80" />
+              </span>
             </button>
             <button
               onClick={() => setActiveTab("orders")}
@@ -1982,147 +2005,107 @@ const AdminDashboard = () => {
           {/* Products Tab */}
           {activeTab === "products" && (
             <div className="p-6">
-              <div className="flex items-center justify-between mb-6">
-                <h2 className="text-2xl font-semibold">Product Management</h2>
-                <button
-                  onClick={() => setShowAddProductModal(true)}
-                  className="bg-[#68a300] text-white px-4 py-2 rounded hover:bg-[#5f9600] flex items-center space-x-2"
-                >
-                  <FaPlus />
-                  <span>Add Product</span>
-                </button>
-                <button
-                  onClick={() =>
-                    exportToExcel(
-                      [
-                        {
-                          name: "Products",
-                          data: formatProductsForExport(products),
-                        },
-                      ],
-                      "products.xlsx",
-                    ).catch(() => toast.error("Export failed"))
-                  }
-                  className="flex items-center space-x-2 rounded bg-green-700 px-4 py-2 text-white hover:bg-green-800"
-                >
-                  <FaFileExcel />
-                  <span>Export</span>
-                </button>
+              <div className="mb-6 flex items-center justify-between gap-4">
+                <div>
+                  <h2 className="text-2xl font-semibold">Product Management</h2>
+                  <p className="text-sm text-gray-500">
+                    Manage products inside the selected category tab.
+                  </p>
+                </div>
+                <div className="flex items-center gap-3">
+                  <button
+                    onClick={() => setShowAddProductModal(true)}
+                    className="bg-[#68a300] text-white px-4 py-2 rounded hover:bg-[#5f9600] flex items-center space-x-2"
+                  >
+                    <FaPlus />
+                    <span>
+                      {selectedProductCategoryData
+                        ? `Add Product to ${selectedProductCategoryData.name}`
+                        : "Add Product"}
+                    </span>
+                  </button>
+                  <button
+                    onClick={() =>
+                      exportToExcel(
+                        [
+                          {
+                            name: "Products",
+                            data: formatProductsForExport(visibleProducts),
+                          },
+                        ],
+                        "products.xlsx",
+                      ).catch(() => toast.error("Export failed"))
+                    }
+                    className="flex items-center space-x-2 rounded bg-green-700 px-4 py-2 text-white hover:bg-green-800"
+                  >
+                    <FaFileExcel />
+                    <span>Export</span>
+                  </button>
+                </div>
               </div>
 
-              <div className="mb-8 grid grid-cols-1 gap-8 lg:grid-cols-[360px,1fr]">
-                <div className="rounded-lg border bg-gray-50 p-5">
-                  <h3 className="mb-4 text-xl font-semibold">
-                    Products Page Banners
+              <div className="grid grid-cols-1 gap-6 lg:grid-cols-[240px,1fr]">
+                <div className="rounded-lg border bg-white p-4 shadow-sm">
+                  <h3 className="mb-4 text-xs font-semibold uppercase tracking-wide text-gray-400">
+                    Product Tabs
                   </h3>
-                  <form
-                    className="space-y-4"
-                    onSubmit={handleCreateProductBanner}
-                  >
-                    <div>
-                      <label className="mb-2 block text-sm font-medium text-gray-700">
-                        Banner Image
-                      </label>
-                      {productBannerImagePreview && (
-                        <img
-                          src={productBannerImagePreview}
-                          alt="Products banner preview"
-                          className="mb-3 h-32 w-full rounded-lg object-cover"
-                        />
-                      )}
-                      <input
-                        type="file"
-                        accept="image/*"
-                        onChange={(e) => {
-                          const file = e.target.files[0];
-                          if (!file) {
-                            return;
-                          }
-
-                          setProductBannerImageFile(file);
-                          const reader = new FileReader();
-                          reader.onload = (event) =>
-                            setProductBannerImagePreview(event.target.result);
-                          reader.readAsDataURL(file);
-                        }}
-                        className="w-full rounded border border-gray-300 px-3 py-2 text-sm"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="mb-2 block text-sm font-medium text-gray-700">
-                        Display Order
-                      </label>
-                      <input
-                        type="number"
-                        value={productBannerForm.displayOrder}
-                        onChange={(e) =>
-                          setProductBannerForm((prev) => ({
-                            ...prev,
-                            displayOrder: e.target.value,
-                          }))
-                        }
-                        className="w-full rounded border border-gray-300 px-3 py-2"
-                        min="0"
-                      />
-                    </div>
-
+                  <div className="space-y-2">
                     <button
-                      type="submit"
-                      disabled={uploadingProductBannerImage}
-                      className="flex items-center space-x-2 rounded bg-[#68a300] px-4 py-2 text-white hover:bg-[#5f9600] disabled:opacity-60"
+                      type="button"
+                      onClick={() => setSelectedProductCategory("")}
+                      className={`flex w-full items-center justify-between rounded-md px-3 py-2 text-left text-sm transition ${
+                        !selectedProductCategory
+                          ? "bg-green-50 text-green-700"
+                          : "text-gray-600 hover:bg-gray-50"
+                      }`}
                     >
-                      <FaPlus />
-                      <span>
-                        {uploadingProductBannerImage
-                          ? "Uploading..."
-                          : "Add Banner"}
+                      <span>All Products</span>
+                      <span className="text-xs text-gray-400">
+                        {products.length}
                       </span>
                     </button>
-                  </form>
+
+                    {categories.map((category) => {
+                      const categoryCount = products.filter(
+                        (product) => product.category === category.value,
+                      ).length;
+                      const isSelected = selectedProductCategory === category.value;
+
+                      return (
+                        <button
+                          key={category._id || category.value}
+                          type="button"
+                          onClick={() => setSelectedProductCategory(category.value)}
+                          className={`flex w-full items-center justify-between rounded-md px-3 py-2 text-left text-sm transition ${
+                            isSelected
+                              ? "bg-green-50 text-green-700"
+                              : "text-gray-600 hover:bg-gray-50"
+                          }`}
+                        >
+                          <span className="truncate">{category.name}</span>
+                          <span className="text-xs text-gray-400">
+                            {categoryCount}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
 
                 <div>
-                  <h3 className="mb-4 text-xl font-semibold">
-                    Existing Banners
-                  </h3>
-                  <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-                    {productBanners.map((banner) => (
-                      <div
-                        key={banner._id}
-                        className="overflow-hidden rounded-xl border bg-white shadow-sm"
-                      >
-                        <img
-                          src={`${API_ORIGIN}${banner.image}`}
-                          alt="Products banner"
-                          className="h-32 w-full object-cover"
-                        />
-                        <div className="flex items-center justify-between p-3">
-                          <p className="text-sm text-gray-500">
-                            Order: {banner.displayOrder || 0}
-                          </p>
-                          <button
-                            onClick={() =>
-                              handleDeleteProductBanner(banner._id)
-                            }
-                            className="text-red-600 hover:text-red-900"
-                          >
-                            <FaTrash />
-                          </button>
-                        </div>
-                      </div>
-                    ))}
-
-                    {productBanners.length === 0 && (
-                      <div className="rounded-xl border border-dashed p-8 text-center text-gray-400 md:col-span-2 xl:col-span-3">
-                        No products banners yet.
-                      </div>
-                    )}
+                  <div className="mb-4 flex items-center justify-between">
+                    <div>
+                      <h3 className="text-xl font-semibold">
+                        {selectedProductCategoryData?.name || "All Products"}
+                      </h3>
+                      <p className="text-sm text-gray-500">
+                        Showing {visibleProducts.length} product
+                        {visibleProducts.length === 1 ? "" : "s"}
+                      </p>
+                    </div>
                   </div>
-                </div>
-              </div>
 
-              <div className="overflow-x-auto">
+                  <div className="overflow-x-auto rounded-lg border bg-white shadow-sm">
                 <table className="min-w-full table-auto">
                   <thead>
                     <tr className="bg-gray-50">
@@ -2150,7 +2133,7 @@ const AdminDashboard = () => {
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
-                    {products.map((product) => (
+                    {visibleProducts.map((product) => (
                       <tr key={product._id}>
                         <td className="px-4 py-4 whitespace-nowrap">
                           <div className="flex items-center">
@@ -2169,6 +2152,9 @@ const AdminDashboard = () => {
                             <div className="ml-4">
                               <div className="text-sm font-medium text-gray-900">
                                 {product.name}
+                              </div>
+                              <div className="text-xs text-gray-500">
+                                {product.productType || "general"} product
                               </div>
                             </div>
                           </div>
@@ -2216,6 +2202,14 @@ const AdminDashboard = () => {
                     ))}
                   </tbody>
                 </table>
+
+                {visibleProducts.length === 0 && (
+                  <div className="border-t p-8 text-center text-gray-400">
+                    No products found in this category yet.
+                  </div>
+                )}
+                  </div>
+                </div>
               </div>
             </div>
           )}
@@ -2356,7 +2350,10 @@ const AdminDashboard = () => {
                             <td className="px-4 py-4 text-sm font-medium">
                               <button
                                 onClick={() =>
-                                  handleDeleteCategory(category._id)
+                                  handleDeleteCategory(
+                                    category._id,
+                                    category.value,
+                                  )
                                 }
                                 className="text-red-600 hover:text-red-900"
                               >
@@ -4208,6 +4205,7 @@ const AdminDashboard = () => {
             </div>
             <div className="p-6">
               <CreateProduct
+                initialCategory={selectedProductCategory || ""}
                 onClose={() => setShowAddProductModal(false)}
                 onSuccess={() => {
                   setShowAddProductModal(false);

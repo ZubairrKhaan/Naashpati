@@ -1,7 +1,15 @@
 import nodemailer from "nodemailer";
 
+const isProduction =
+  (process.env.NODE_ENV || "").toLowerCase() === "production";
+
 const sendEmail = async (options) => {
   try {
+    if (!isProduction) {
+      console.warn("Email skipped in development mode.");
+      return { messageId: "dev-skip-email" };
+    }
+
     // Create transporter
     const transporter = nodemailer.createTransport({
       host: process.env.SMTP_HOST,

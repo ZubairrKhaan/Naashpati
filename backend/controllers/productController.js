@@ -13,6 +13,28 @@ import {
 
 const normalizeSku = (value = "") => String(value).trim().toUpperCase();
 
+const normalizeProductType = (value = "general") =>
+  ["general", "detailed"].includes(value) ? value : "general";
+
+const sanitizeProductByType = (payload = {}) => {
+  if (payload.productType !== "detailed") {
+    return {
+      ...payload,
+      briefDescription: "",
+      briefDescriptionPoints: [],
+      directions: [],
+      servingSize: "",
+      instructionsContent: "",
+      faqContent: "",
+      qualityPromiseContent: "",
+      ingredients: [],
+      helpsTo: "",
+    };
+  }
+
+  return payload;
+};
+
 const escapeRegex = (value = "") =>
   String(value).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
@@ -31,6 +53,15 @@ const isSkuDuplicate = async (sku, excludeProductId = null) => {
 
   const existingProduct = await Product.findOne(query).select("_id").lean();
   return Boolean(existingProduct);
+};
+
+const isTransactionUnsupportedError = (error) => {
+  const message = String(error?.message || "").toLowerCase();
+  return (
+    message.includes("transaction numbers are only allowed") ||
+    message.includes("replica set") ||
+    message.includes("transaction")
+  );
 };
 
 const deleteUploadedMediaFile = (url = "") => {
@@ -179,42 +210,70 @@ export const createProduct = async (req, res) => {
   }
 
   try {
-    const session = await mongoose.startSession();
     let createdProduct;
 
     const payload = {
       ...req.body,
+      productType: normalizeProductType(req.body.productType),
       sku: normalizeSku(req.body.sku),
       stock: Number(req.body.stock || 0),
     };
 
-    if (await isSkuDuplicate(payload.sku)) {
+    const normalizedPayload = sanitizeProductByType(payload);
+
+    if (await isSkuDuplicate(normalizedPayload.sku)) {
       return res.status(409).json({
         success: false,
         error: "SKU already exists. Please use a unique SKU.",
       });
     }
 
-    await session.withTransaction(async () => {
-      const product = await Product.create([payload], { session });
-      createdProduct = product[0];
+    const createWithSession = async () => {
+      const session = await mongoose.startSession();
+      try {
+        await session.withTransaction(async () => {
+          const product = await Product.create([normalizedPayload], { session });
+          createdProduct = product[0];
 
-      if (payload.stock > 0) {
-        await createBatchRecord(
-          {
-            productId: createdProduct._id,
-            batchNumber: "INITIAL",
-            quantity: payload.stock,
-            costPrice: payload.costPrice,
-            purchaseDate: new Date(),
-            expiryDate: null,
-          },
-          session,
-        );
+          if (normalizedPayload.stock > 0) {
+            await createBatchRecord(
+              {
+                productId: createdProduct._id,
+                batchNumber: "INITIAL",
+                quantity: normalizedPayload.stock,
+                costPrice: normalizedPayload.costPrice,
+                purchaseDate: new Date(),
+                expiryDate: null,
+              },
+              session,
+            );
+          }
+        });
+      } finally {
+        await session.endSession();
       }
-    });
+    };
 
-    session.endSession();
+    try {
+      await createWithSession();
+    } catch (txError) {
+      if (!isTransactionUnsupportedError(txError)) {
+        throw txError;
+      }
+
+      // Local standalone MongoDB does not support transactions.
+      createdProduct = await Product.create(normalizedPayload);
+      if (normalizedPayload.stock > 0) {
+        await createBatchRecord({
+          productId: createdProduct._id,
+          batchNumber: "INITIAL",
+          quantity: normalizedPayload.stock,
+          costPrice: normalizedPayload.costPrice,
+          purchaseDate: new Date(),
+          expiryDate: null,
+        });
+      }
+    }
 
     const stockMap = await getStockTotalsByProductIds([createdProduct._id]);
     const productWithStock = attachComputedStock(createdProduct, stockMap);
@@ -285,12 +344,15 @@ export const updateProduct = async (req, res) => {
 
     const payload = {
       ...req.body,
+      productType: normalizeProductType(req.body.productType),
     };
 
-    if (typeof req.body.sku === "string") {
-      payload.sku = normalizeSku(req.body.sku);
+    const normalizedPayload = sanitizeProductByType(payload);
 
-      if (await isSkuDuplicate(payload.sku, req.params.id)) {
+    if (typeof req.body.sku === "string") {
+      normalizedPayload.sku = normalizeSku(req.body.sku);
+
+      if (await isSkuDuplicate(normalizedPayload.sku, req.params.id)) {
         return res.status(409).json({
           success: false,
           error: "SKU already exists. Please use a unique SKU.",
@@ -298,31 +360,64 @@ export const updateProduct = async (req, res) => {
       }
     }
 
-    const session = await mongoose.startSession();
     let updatedProduct;
 
-    await session.withTransaction(async () => {
-      if (payload.stock !== undefined) {
+    const updateWithSession = async () => {
+      const session = await mongoose.startSession();
+      try {
+        await session.withTransaction(async () => {
+          if (normalizedPayload.stock !== undefined) {
+            await adjustStockToTarget(product, Number(payload.stock), {
+              session,
+              costPrice:
+                normalizedPayload.costPrice !== undefined
+                  ? Number(normalizedPayload.costPrice)
+                  : Number(product.costPrice || 0),
+              purchaseDate: new Date(),
+            });
+          }
+
+          delete normalizedPayload.stock;
+
+          updatedProduct = await Product.findByIdAndUpdate(
+            req.params.id,
+            normalizedPayload,
+            {
+              new: true,
+              runValidators: true,
+              session,
+            },
+          );
+        });
+      } finally {
+        await session.endSession();
+      }
+    };
+
+    try {
+      await updateWithSession();
+    } catch (txError) {
+      if (!isTransactionUnsupportedError(txError)) {
+        throw txError;
+      }
+
+      if (normalizedPayload.stock !== undefined) {
         await adjustStockToTarget(product, Number(payload.stock), {
-          session,
           costPrice:
-            payload.costPrice !== undefined
-              ? Number(payload.costPrice)
+            normalizedPayload.costPrice !== undefined
+              ? Number(normalizedPayload.costPrice)
               : Number(product.costPrice || 0),
           purchaseDate: new Date(),
         });
       }
 
-      delete payload.stock;
+      delete normalizedPayload.stock;
 
-      updatedProduct = await Product.findByIdAndUpdate(req.params.id, payload, {
+      updatedProduct = await Product.findByIdAndUpdate(req.params.id, normalizedPayload, {
         new: true,
         runValidators: true,
-        session,
       });
-    });
-
-    session.endSession();
+    }
 
     const stockMap = await getStockTotalsByProductIds([updatedProduct._id]);
     const productWithStock = attachComputedStock(updatedProduct, stockMap);
@@ -339,6 +434,21 @@ export const updateProduct = async (req, res) => {
       });
     }
 
+    if (error?.message === "INSUFFICIENT_STOCK") {
+      return res.status(400).json({
+        success: false,
+        error: "Insufficient stock to apply requested stock change",
+      });
+    }
+
+    if (error?.message === "NEGATIVE_BATCH_STOCK_NOT_ALLOWED") {
+      return res.status(400).json({
+        success: false,
+        error: "Invalid stock operation",
+      });
+    }
+
+    console.error("Product update error:", error);
     res.status(500).json({
       success: false,
       error: "Server error",

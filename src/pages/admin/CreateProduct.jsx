@@ -14,7 +14,12 @@ import {
 } from "../../store/slices/authSlice";
 import RichTextEditor from "../../components/RichTextEditor";
 
-const CreateProduct = ({ onClose, onSuccess }) => {
+const PRODUCT_TYPE_OPTIONS = [
+  { value: "general", label: "General Product" },
+  { value: "detailed", label: "Detailed Product" },
+];
+
+const CreateProduct = ({ onClose, onSuccess, initialCategory = "" }) => {
   const dispatch = useDispatch();
   const user = useSelector(selectAuthUser);
   const isAuthenticated = useSelector(selectIsAuthenticated);
@@ -23,6 +28,7 @@ const CreateProduct = ({ onClose, onSuccess }) => {
   const categories = useSelector(selectCategories);
 
   const [formData, setFormData] = useState({
+    productType: "general",
     name: "",
     description: "",
     briefDescriptionPoints: [""],
@@ -40,9 +46,11 @@ const CreateProduct = ({ onClose, onSuccess }) => {
     stock: "0",
     image: null,
     isActive: true,
+    showOnHomeBanner: false,
   });
   const [imagePreview, setImagePreview] = useState(null);
   const [uploading, setUploading] = useState(false);
+  const isDetailedProduct = formData.productType === "detailed";
   const descriptionWordCount = formData.description
     .trim()
     .split(/\s+/)
@@ -65,10 +73,19 @@ const CreateProduct = ({ onClose, onSuccess }) => {
   }, [dispatch, isAuthenticated, user, onClose]);
 
   useEffect(() => {
+    if (initialCategory) {
+      setFormData((prev) =>
+        prev.category === initialCategory
+          ? prev
+          : { ...prev, category: initialCategory },
+      );
+      return;
+    }
+
     if (categories.length > 0 && !formData.category) {
       setFormData((prev) => ({ ...prev, category: categories[0].value }));
     }
-  }, [categories, formData.category]);
+  }, [initialCategory, categories, formData.category]);
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
@@ -219,6 +236,7 @@ const CreateProduct = ({ onClose, onSuccess }) => {
       stock,
       image,
       isActive,
+      showOnHomeBanner,
     } = formData;
 
     // Frontend validation matching backend requirements
@@ -245,57 +263,56 @@ const CreateProduct = ({ onClose, onSuccess }) => {
       return;
     }
 
-    const normalizedBriefPoints = (briefDescriptionPoints || [])
-      .map((point) => point.trim())
-      .filter(Boolean);
+    const normalizedBriefPoints = isDetailedProduct
+      ? (briefDescriptionPoints || [])
+          .map((point) => point.trim())
+          .filter(Boolean)
+      : [];
 
-    const normalizedIngredients = (ingredients || [])
-      .map((item) => ({
-        name: String(item?.name || "").trim(),
-        amount: String(item?.amount || "").trim(),
-      }))
-      .filter((item) => item.name || item.amount);
+    const normalizedIngredients = isDetailedProduct
+      ? (ingredients || [])
+          .map((item) => ({
+            name: String(item?.name || "").trim(),
+            amount: String(item?.amount || "").trim(),
+          }))
+          .filter((item) => item.name || item.amount)
+      : [];
 
-    if (
-      normalizedIngredients.some(
-        (item) =>
-          !item.name || item.name.length > 150 || item.amount.length > 100,
-      )
-    ) {
+    if (isDetailedProduct && normalizedIngredients.some((item) => !item.name || item.name.length > 150 || item.amount.length > 100)) {
       toast.error(
         "Each ingredient row needs a name (max 150 chars) and optional amount (max 100 chars).",
       );
       return;
     }
 
-    if ((instructionsContent || "").trim().length > 2000) {
+    if (isDetailedProduct && (instructionsContent || "").trim().length > 2000) {
       toast.error("Instructions content must be 2000 characters or fewer.");
       return;
     }
 
-    if ((faqContent || "").trim().length > 10000) {
+    if (isDetailedProduct && (faqContent || "").trim().length > 10000) {
       toast.error("FAQ content must be 10000 characters or fewer.");
       return;
     }
 
-    if ((qualityPromiseContent || "").trim().length > 3000) {
+    if (isDetailedProduct && (qualityPromiseContent || "").trim().length > 3000) {
       toast.error("Quality promise content must be 3000 characters or fewer.");
       return;
     }
 
-    if (normalizedBriefPoints.length === 0) {
+    if (isDetailedProduct && normalizedBriefPoints.length === 0) {
       toast.error("Please add at least one brief description point.");
       return;
     }
 
-    if (normalizedBriefPoints.some((point) => point.length > 300)) {
+    if (isDetailedProduct && normalizedBriefPoints.some((point) => point.length > 300)) {
       toast.error(
         "Each brief description point must be 300 characters or fewer.",
       );
       return;
     }
 
-    if ((helpsTo || "").trim().length > 600) {
+    if (isDetailedProduct && (helpsTo || "").trim().length > 600) {
       toast.error("Helps to content cannot be more than 600 characters.");
       return;
     }
@@ -335,23 +352,31 @@ const CreateProduct = ({ onClose, onSuccess }) => {
 
     try {
       const productData = {
+        productType: formData.productType,
         name: name.trim(),
         description: description.trim(),
         briefDescription: normalizedBriefPoints.join("\n"),
         briefDescriptionPoints: normalizedBriefPoints,
-        directions: (directions || []).map((s) => s.trim()).filter(Boolean),
-        servingSize: (servingSize || "").trim(),
-        instructionsContent: (instructionsContent || "").trim(),
-        faqContent: (faqContent || "").trim(),
-        qualityPromiseContent: (qualityPromiseContent || "").trim(),
+        directions: isDetailedProduct
+          ? (directions || []).map((s) => s.trim()).filter(Boolean)
+          : [],
+        servingSize: isDetailedProduct ? (servingSize || "").trim() : "",
+        instructionsContent: isDetailedProduct
+          ? (instructionsContent || "").trim()
+          : "",
+        faqContent: isDetailedProduct ? (faqContent || "").trim() : "",
+        qualityPromiseContent: isDetailedProduct
+          ? (qualityPromiseContent || "").trim()
+          : "",
         ingredients: normalizedIngredients,
-        helpsTo: helpsTo.trim(),
+        helpsTo: isDetailedProduct ? helpsTo.trim() : "",
         price: Number(price),
         costPrice: Number(costPrice),
         category,
         sku: normalizedSku,
         stock: Number(stock),
         isActive,
+        showOnHomeBanner,
         image: "",
         images: [],
       };
@@ -411,6 +436,31 @@ const CreateProduct = ({ onClose, onSuccess }) => {
               placeholder="Example: Lavender Oil"
               required
             />
+          </div>
+
+          <div>
+            <label
+              htmlFor="productType"
+              className="block text-sm font-medium text-gray-700"
+            >
+              Product Type
+            </label>
+            <select
+              id="productType"
+              name="productType"
+              value={formData.productType}
+              onChange={handleChange}
+              className="mt-1 block w-full rounded-md border-gray-300 bg-white shadow-sm focus:border-green-500 focus:ring-green-500 sm:text-sm"
+            >
+              {PRODUCT_TYPE_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+            <p className="mt-1 text-xs text-gray-500">
+              Detailed products can use the extra content sections below.
+            </p>
           </div>
 
           <div>
@@ -815,6 +865,19 @@ const CreateProduct = ({ onClose, onSuccess }) => {
             />
             <span className="ml-2 text-sm text-gray-700">Active product</span>
           </label>
+
+          <label className="inline-flex items-center">
+            <input
+              type="checkbox"
+              name="showOnHomeBanner"
+              checked={formData.showOnHomeBanner}
+              onChange={handleChange}
+              className="h-4 w-4 rounded border-gray-300 text-green-600 focus:ring-green-500"
+            />
+            <span className="ml-2 text-sm text-gray-700">
+              Show in Home banner products
+            </span>
+          </label>
         </div>
 
         <div className="flex items-center justify-end gap-4">
@@ -843,4 +906,3 @@ const CreateProduct = ({ onClose, onSuccess }) => {
 };
 
 export default CreateProduct;
-

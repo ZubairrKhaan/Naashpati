@@ -19,6 +19,11 @@ import {
 } from "../../store/slices/authSlice";
 import RichTextEditor from "../../components/RichTextEditor";
 
+const PRODUCT_TYPE_OPTIONS = [
+  { value: "general", label: "General Product" },
+  { value: "detailed", label: "Detailed Product" },
+];
+
 const EditProduct = ({ onClose, onSuccess, product: productProp }) => {
   const { id } = useParams();
   const dispatch = useDispatch();
@@ -34,6 +39,7 @@ const EditProduct = ({ onClose, onSuccess, product: productProp }) => {
   const API_ORIGIN = API_URL.replace(/\/api\/?$/, "");
 
   const [formData, setFormData] = useState({
+    productType: "general",
     name: "",
     description: "",
     briefDescriptionPoints: [""],
@@ -51,6 +57,7 @@ const EditProduct = ({ onClose, onSuccess, product: productProp }) => {
     stock: "0",
     image: null,
     isActive: true,
+    showOnHomeBanner: false,
   });
   const [imagePreview, setImagePreview] = useState(null);
   const [uploading, setUploading] = useState(false);
@@ -93,6 +100,7 @@ const EditProduct = ({ onClose, onSuccess, product: productProp }) => {
   useEffect(() => {
     if (product) {
       setFormData({
+        productType: product.productType || "general",
         name: product.name || "",
         description: product.description || "",
         briefDescriptionPoints:
@@ -128,6 +136,7 @@ const EditProduct = ({ onClose, onSuccess, product: productProp }) => {
         stock: product.stock?.toString() || "0",
         image: null, // Don't set image file, just use existing URL for preview
         isActive: product.isActive ?? true,
+        showOnHomeBanner: product.showOnHomeBanner ?? false,
       });
       // Set image preview from existing product image
       if (product.images?.[0]?.url || product.images?.[0]) {
@@ -479,6 +488,7 @@ const EditProduct = ({ onClose, onSuccess, product: productProp }) => {
     e.preventDefault();
 
     const {
+      productType,
       name,
       description,
       briefDescriptionPoints,
@@ -496,6 +506,7 @@ const EditProduct = ({ onClose, onSuccess, product: productProp }) => {
       stock,
       image,
       isActive,
+      showOnHomeBanner,
     } = formData;
 
     if (
@@ -530,18 +541,23 @@ const EditProduct = ({ onClose, onSuccess, product: productProp }) => {
       return;
     }
 
-    const normalizedBriefPoints = (briefDescriptionPoints || [])
-      .map((point) => point.trim())
-      .filter(Boolean);
+    const normalizedBriefPoints = productType === "detailed"
+      ? (briefDescriptionPoints || [])
+          .map((point) => point.trim())
+          .filter(Boolean)
+      : [];
 
-    const normalizedIngredients = (ingredients || [])
-      .map((item) => ({
-        name: String(item?.name || "").trim(),
-        amount: String(item?.amount || "").trim(),
-      }))
-      .filter((item) => item.name || item.amount);
+    const normalizedIngredients = productType === "detailed"
+      ? (ingredients || [])
+          .map((item) => ({
+            name: String(item?.name || "").trim(),
+            amount: String(item?.amount || "").trim(),
+          }))
+          .filter((item) => item.name || item.amount)
+      : [];
 
     if (
+      productType === "detailed" &&
       normalizedIngredients.some(
         (item) =>
           !item.name || item.name.length > 150 || item.amount.length > 100,
@@ -553,34 +569,43 @@ const EditProduct = ({ onClose, onSuccess, product: productProp }) => {
       return;
     }
 
-    if ((instructionsContent || "").trim().length > 2000) {
+    if (
+      productType === "detailed" &&
+      (instructionsContent || "").trim().length > 2000
+    ) {
       toast.error("Instructions content must be 2000 characters or fewer.");
       return;
     }
 
-    if ((faqContent || "").trim().length > 10000) {
+    if (productType === "detailed" && (faqContent || "").trim().length > 10000) {
       toast.error("FAQ content must be 10000 characters or fewer.");
       return;
     }
 
-    if ((qualityPromiseContent || "").trim().length > 3000) {
+    if (
+      productType === "detailed" &&
+      (qualityPromiseContent || "").trim().length > 3000
+    ) {
       toast.error("Quality promise content must be 3000 characters or fewer.");
       return;
     }
 
-    if (normalizedBriefPoints.length === 0) {
+    if (productType === "detailed" && normalizedBriefPoints.length === 0) {
       toast.error("Please add at least one brief description point.");
       return;
     }
 
-    if (normalizedBriefPoints.some((point) => point.length > 300)) {
+    if (
+      productType === "detailed" &&
+      normalizedBriefPoints.some((point) => point.length > 300)
+    ) {
       toast.error(
         "Each brief description point must be 300 characters or fewer.",
       );
       return;
     }
 
-    if ((helpsTo || "").trim().length > 600) {
+    if (productType === "detailed" && (helpsTo || "").trim().length > 600) {
       toast.error("Helps to content cannot be more than 600 characters.");
       return;
     }
@@ -611,23 +636,34 @@ const EditProduct = ({ onClose, onSuccess, product: productProp }) => {
       }
 
       const productData = {
+        productType,
         name,
         description,
         briefDescription: normalizedBriefPoints.join("\n"),
         briefDescriptionPoints: normalizedBriefPoints,
-        directions: (directions || []).map((s) => s.trim()).filter(Boolean),
-        servingSize: (servingSize || "").trim(),
-        instructionsContent: (instructionsContent || "").trim(),
-        faqContent: (faqContent || "").trim(),
-        qualityPromiseContent: (qualityPromiseContent || "").trim(),
+        directions:
+          productType === "detailed"
+            ? (directions || []).map((s) => s.trim()).filter(Boolean)
+            : [],
+        servingSize: productType === "detailed" ? (servingSize || "").trim() : "",
+        instructionsContent:
+          productType === "detailed"
+            ? (instructionsContent || "").trim()
+            : "",
+        faqContent: productType === "detailed" ? (faqContent || "").trim() : "",
+        qualityPromiseContent:
+          productType === "detailed"
+            ? (qualityPromiseContent || "").trim()
+            : "",
         ingredients: normalizedIngredients,
-        helpsTo: helpsTo.trim(),
+        helpsTo: productType === "detailed" ? helpsTo.trim() : "",
         price: Number(price),
         costPrice: Number(costPrice),
         category,
         sku: normalizedSku,
         stock: Number(stock),
         isActive,
+        showOnHomeBanner,
         image: finalImage,
         images: finalImages,
       };
@@ -713,6 +749,31 @@ const EditProduct = ({ onClose, onSuccess, product: productProp }) => {
                   </option>
                 ))}
               </select>
+            </div>
+
+            <div>
+              <label
+                htmlFor="productType"
+                className="block text-sm font-medium text-gray-700"
+              >
+                Product Type
+              </label>
+              <select
+                id="productType"
+                name="productType"
+                value={formData.productType}
+                onChange={handleChange}
+                className="mt-1 block w-full rounded-md border-gray-300 bg-white shadow-sm focus:border-green-500 focus:ring-green-500 sm:text-sm"
+              >
+                {PRODUCT_TYPE_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+              <p className="mt-1 text-xs text-gray-500">
+                Detailed products can use the extra content sections below.
+              </p>
             </div>
 
             <div>
@@ -1287,6 +1348,19 @@ const EditProduct = ({ onClose, onSuccess, product: productProp }) => {
               />
               <span className="ml-2 text-sm text-gray-700">Active product</span>
             </label>
+
+            <label className="inline-flex items-center">
+              <input
+                type="checkbox"
+                name="showOnHomeBanner"
+                checked={formData.showOnHomeBanner}
+                onChange={handleChange}
+                className="h-4 w-4 rounded border-gray-300 text-green-600 focus:ring-green-500"
+              />
+              <span className="ml-2 text-sm text-gray-700">
+                Show in Home banner products
+              </span>
+            </label>
           </div>
 
           <div className="flex items-center justify-end gap-4">
@@ -1316,4 +1390,3 @@ const EditProduct = ({ onClose, onSuccess, product: productProp }) => {
 };
 
 export default EditProduct;
-

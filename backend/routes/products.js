@@ -63,8 +63,18 @@ const isValidIngredients = (value) => {
   });
 };
 
+const isValidProductType = (value) => ["general", "detailed"].includes(value);
+
 // Validation rules
 const createProductValidation = [
+  body("productType")
+    .optional()
+    .custom((value) => {
+      if (!isValidProductType(value)) {
+        throw new Error("Invalid product type");
+      }
+      return true;
+    }),
   body("name")
     .trim()
     .isLength({ min: 2, max: 100 })
@@ -161,9 +171,21 @@ const createProductValidation = [
   body("stock")
     .isInt({ min: 0 })
     .withMessage("Stock must be a non-negative integer"),
+  body("showOnHomeBanner")
+    .optional()
+    .isBoolean()
+    .withMessage("showOnHomeBanner must be a boolean"),
 ];
 
 const updateProductValidation = [
+  body("productType")
+    .optional()
+    .custom((value) => {
+      if (!isValidProductType(value)) {
+        throw new Error("Invalid product type");
+      }
+      return true;
+    }),
   body("name")
     .optional()
     .trim()
@@ -222,6 +244,10 @@ const updateProductValidation = [
     .optional()
     .isInt({ min: 0 })
     .withMessage("Stock must be a non-negative integer"),
+  body("showOnHomeBanner")
+    .optional()
+    .isBoolean()
+    .withMessage("showOnHomeBanner must be a boolean"),
   body("helpsTo")
     .optional()
     .trim()

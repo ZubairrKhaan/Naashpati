@@ -20,6 +20,10 @@ import {
   fetchProductBanners,
   selectProductBanners,
 } from "../store/slices/productBannerSlice";
+import {
+  fetchHeroSlides,
+  selectHeroSlides,
+} from "../store/slices/heroSlideSlice";
 import ProductCard from "../components/ProductCard";
 import Loader from "../components/Loader";
 
@@ -39,7 +43,10 @@ const Products = () => {
   const status = useSelector(selectProductsStatus);
   const error = useSelector(selectProductsError);
   const productBanners = useSelector(selectProductBanners);
+  const heroSlides = useSelector(selectHeroSlides);
   const initialCategory = searchParams.get("category") || "";
+  const selectedBannerId = searchParams.get("banner") || "";
+  const selectedHeroBannerId = searchParams.get("heroBanner") || "";
   const [currentBanner, setCurrentBanner] = useState(0);
   const [isBannerTransition, setIsBannerTransition] = useState(true);
   const [viewMode, setViewMode] = useState(getInitialViewMode);
@@ -57,6 +64,7 @@ const Products = () => {
     dispatch(fetchProducts());
     dispatch(fetchCategories());
     dispatch(fetchProductBanners());
+    dispatch(fetchHeroSlides());
   }, [dispatch]);
 
   const bannerSlides = useMemo(() => {
@@ -76,6 +84,42 @@ const Products = () => {
     if (bannerSlides.length <= 1) return bannerSlides;
     return [...bannerSlides, bannerSlides[0]];
   }, [bannerSlides]);
+
+  const selectedBanner = useMemo(() => {
+    if (!selectedBannerId) {
+      return null;
+    }
+
+    return (
+      bannerSlides.find((banner) => banner._id === selectedBannerId) || null
+    );
+  }, [bannerSlides, selectedBannerId]);
+
+  const heroBannerSlides = useMemo(() => {
+    if (heroSlides.length === 0) {
+      return [];
+    }
+
+    return heroSlides.map((slide) => ({
+      _id: slide._id,
+      image:
+        slide.image?.startsWith("http://") ||
+        slide.image?.startsWith("https://")
+          ? slide.image
+          : `${API_ORIGIN}${slide.image}`,
+    }));
+  }, [API_ORIGIN, heroSlides]);
+
+  const selectedHeroBanner = useMemo(() => {
+    if (!selectedHeroBannerId) {
+      return null;
+    }
+
+    return (
+      heroBannerSlides.find((banner) => banner._id === selectedHeroBannerId) ||
+      null
+    );
+  }, [heroBannerSlides, selectedHeroBannerId]);
 
   useEffect(() => {
     setCurrentBanner(0);
@@ -216,66 +260,82 @@ const Products = () => {
   return (
     <div>
       <section className="relative mb-8 overflow-hidden">
-        <div className="relative h-[320px] sm:h-[420px] lg:h-[720px]">
-          <div
-            className={`flex h-full ${
-              isBannerTransition
-                ? "transition-transform duration-700 ease-in-out"
-                : ""
-            }`}
-            style={{ transform: `translateX(-${currentBanner * 100}%)` }}
-            onTransitionEnd={handleBannerTransitionEnd}
-          >
-            {loopedBannerSlides.map((banner, index) => (
-              <div
-                key={`${banner._id}-${index}`}
-                className="relative h-full min-w-full"
-              >
-                <img
-                  src={banner.image}
-                  alt="Products banner"
-                  className="h-full w-full object-cover"
-                />
-              </div>
-            ))}
-          </div>
-
-          {bannerSlides.length > 1 && (
+        <div className="relative h-[220px] sm:h-[340px] lg:h-[560px]">
+          {selectedHeroBanner ? (
+            <img
+              src={selectedHeroBanner.image}
+              alt="Selected hero banner"
+              className="h-full w-full object-cover"
+            />
+          ) : selectedBanner ? (
+            <img
+              src={selectedBanner.image}
+              alt="Selected products banner"
+              className="h-full w-full object-cover"
+            />
+          ) : (
             <>
-              <button
-                type="button"
-                onClick={handlePrevBanner}
-                className="absolute left-3 top-1/2 z-10 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full bg-white/85 text-gray-700 shadow transition hover:bg-white"
-                aria-label="Previous products banner"
+              <div
+                className={`flex h-full ${
+                  isBannerTransition
+                    ? "transition-transform duration-700 ease-in-out"
+                    : ""
+                }`}
+                style={{ transform: `translateX(-${currentBanner * 100}%)` }}
+                onTransitionEnd={handleBannerTransitionEnd}
               >
-                <FaChevronLeft />
-              </button>
-              <button
-                type="button"
-                onClick={handleNextBanner}
-                className="absolute right-3 top-1/2 z-10 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full bg-white/85 text-gray-700 shadow transition hover:bg-white"
-                aria-label="Next products banner"
-              >
-                <FaChevronRight />
-              </button>
-
-              <div className="absolute bottom-4 left-1/2 z-10 flex -translate-x-1/2 items-center gap-2">
-                {bannerSlides.map((banner, index) => (
-                  <button
-                    key={banner._id}
-                    type="button"
-                    onClick={() => setCurrentBanner(index)}
-                    className={`w-3 h-3 rounded-full border border-black/70 transition p-0 m-0
-                      ${
-                        index === currentBanner % bannerSlides.length
-                          ? "bg-[#232323]"
-                          : "bg-none"
-                      }
-                    `}
-                    aria-label={`Go to products banner ${index + 1}`}
-                  />
+                {loopedBannerSlides.map((banner, index) => (
+                  <div
+                    key={`${banner._id}-${index}`}
+                    className="relative h-full min-w-full"
+                  >
+                    <img
+                      src={banner.image}
+                      alt="Products banner"
+                      className="h-full w-full object-cover"
+                    />
+                  </div>
                 ))}
               </div>
+
+              {bannerSlides.length > 1 && (
+                <>
+                  <button
+                    type="button"
+                    onClick={handlePrevBanner}
+                    className="absolute left-3 top-1/2 z-10 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full bg-white/85 text-gray-700 shadow transition hover:bg-white"
+                    aria-label="Previous products banner"
+                  >
+                    <FaChevronLeft />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleNextBanner}
+                    className="absolute right-3 top-1/2 z-10 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full bg-white/85 text-gray-700 shadow transition hover:bg-white"
+                    aria-label="Next products banner"
+                  >
+                    <FaChevronRight />
+                  </button>
+
+                  <div className="absolute bottom-4 left-1/2 z-10 flex -translate-x-1/2 items-center gap-2">
+                    {bannerSlides.map((banner, index) => (
+                      <button
+                        key={banner._id}
+                        type="button"
+                        onClick={() => setCurrentBanner(index)}
+                        className={`w-3 h-3 rounded-full border border-black/70 transition p-0 m-0
+                          ${
+                            index === currentBanner % bannerSlides.length
+                              ? "bg-[#232323]"
+                              : "bg-none"
+                          }
+                        `}
+                        aria-label={`Go to products banner ${index + 1}`}
+                      />
+                    ))}
+                  </div>
+                </>
+              )}
             </>
           )}
         </div>
