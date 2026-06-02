@@ -1,8 +1,9 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import toast from "react-hot-toast";
 import {
   createProduct,
+  createCategory,
   fetchCategories,
   selectCategories,
   selectProductsStatus,
@@ -26,6 +27,11 @@ const ATTRIBUTE_FIELDS = [
   { key: "language", label: "Language" },
   { key: "bottleCapacity", label: "Bottle Capacity" },
   { key: "dimensions", label: "Dimensions" },
+];
+
+const DEFAULT_CATEGORIES = [
+  { name: "Male Collection", description: "" },
+  { name: "Female Collection", description: "" },
 ];
 
 const CreateProduct = ({ onClose, onSuccess, initialCategory = "" }) => {
@@ -92,6 +98,7 @@ const CreateProduct = ({ onClose, onSuccess, initialCategory = "" }) => {
   });
   const [imagePreview, setImagePreview] = useState(null);
   const [uploading, setUploading] = useState(false);
+  const defaultCategoriesEnsured = useRef(false);
 
   useEffect(() => {
     dispatch(fetchCategories());
@@ -108,6 +115,35 @@ const CreateProduct = ({ onClose, onSuccess, initialCategory = "" }) => {
       toast.error("Access denied. Admin privileges required.");
     }
   }, [dispatch, isAuthenticated, user, onClose]);
+
+  useEffect(() => {
+    if (!isAuthenticated || user?.role !== "admin") {
+      return;
+    }
+
+    if (defaultCategoriesEnsured.current) {
+      return;
+    }
+
+    const existingValues = new Set(
+      categories.map((category) => String(category.value || "").toLowerCase()),
+    );
+
+    const missingDefaults = DEFAULT_CATEGORIES.filter((category) => {
+      const value = category.name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+      return !existingValues.has(value);
+    });
+
+    if (missingDefaults.length === 0) {
+      defaultCategoriesEnsured.current = true;
+      return;
+    }
+
+    defaultCategoriesEnsured.current = true;
+    missingDefaults.forEach((category) => {
+      dispatch(createCategory(category)).catch(() => {});
+    });
+  }, [categories, dispatch, isAuthenticated, user]);
 
   useEffect(() => {
     if (initialCategory) {
