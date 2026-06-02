@@ -1,9 +1,10 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { useParams, useNavigate } from "react-router-dom";
 import toast from "react-hot-toast";
 import { FaRegStar, FaReply, FaStar, FaTrash } from "react-icons/fa";
 import {
+  createCategory,
   fetchProduct,
   fetchCategories,
   updateProduct,
@@ -32,6 +33,18 @@ const ATTRIBUTE_FIELDS = [
   { key: "bottleCapacity", label: "Bottle Capacity" },
   { key: "dimensions", label: "Dimensions" },
 ];
+
+const DEFAULT_CATEGORIES = [
+  { name: "Male Collection", description: "" },
+  { name: "Female Collection", description: "" },
+];
+
+const slugifyCategory = (value = "") =>
+  String(value)
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
 
 const EditProduct = ({ onClose, onSuccess, product: productProp }) => {
   const { id } = useParams();
@@ -107,6 +120,7 @@ const EditProduct = ({ onClose, onSuccess, product: productProp }) => {
   const [questionRecords, setQuestionRecords] = useState([]);
   const [questionAnswerDrafts, setQuestionAnswerDrafts] = useState({});
   const [moderatingId, setModeratingId] = useState("");
+  const defaultCategoriesEnsured = useRef(false);
 
   useEffect(() => {
     if (!isAuthenticated || user?.role !== "admin") {
@@ -134,6 +148,33 @@ const EditProduct = ({ onClose, onSuccess, product: productProp }) => {
       }
     };
   }, [isAuthenticated, user, id, dispatch, navigate, onClose, productProp]);
+
+  useEffect(() => {
+    if (!isAuthenticated || user?.role !== "admin") {
+      return;
+    }
+
+    if (defaultCategoriesEnsured.current) {
+      return;
+    }
+
+    const existingValues = new Set(
+      categories.map((category) => String(category.value || "").toLowerCase()),
+    );
+    const missingDefaults = DEFAULT_CATEGORIES.filter((category) =>
+      !existingValues.has(slugifyCategory(category.name)),
+    );
+
+    if (missingDefaults.length === 0) {
+      defaultCategoriesEnsured.current = true;
+      return;
+    }
+
+    defaultCategoriesEnsured.current = true;
+    missingDefaults.forEach((category) => {
+      dispatch(createCategory(category)).catch(() => {});
+    });
+  }, [categories, dispatch, isAuthenticated, user]);
 
   useEffect(() => {
     if (product) {

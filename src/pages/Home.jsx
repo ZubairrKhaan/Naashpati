@@ -252,7 +252,14 @@ const Home = () => {
           </div>
 
           <div className="flex gap-5 overflow-x-auto pb-4">
-            {categories.map((category) => (
+            {categories
+              .filter((category) => {
+                const value = String(category.value || "")
+                  .trim()
+                  .toLowerCase();
+                return value !== "male-collection" && value !== "female-collection";
+              })
+              .map((category) => (
               <Link
                 key={category.value}
                 to={`/products?category=${category.value}`}
@@ -276,7 +283,7 @@ const Home = () => {
                   {category.name}
                 </p>
               </Link>
-            ))}
+              ))}
           </div>
 
           <div className="mt-10 text-center">

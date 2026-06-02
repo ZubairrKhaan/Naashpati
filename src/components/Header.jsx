@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { Link, NavLink, useLocation, useNavigate } from "react-router-dom";
 import { useSelector, useDispatch } from "react-redux";
 import {
@@ -9,6 +9,7 @@ import {
 } from "../store/slices/authSlice";
 import { selectCartItemCount, resetCart } from "../store/slices/cartSlice";
 import {
+  createCategory,
   fetchCategories,
   selectCategories,
 } from "../store/slices/productSlice";
@@ -18,34 +19,26 @@ import {
   MdMenu,
   MdClose,
   MdSearch,
-  MdKeyboardArrowDown,
-  MdChevronRight,
 } from "react-icons/md";
+
+const DEFAULT_CATEGORIES = [
+  { name: "Male Collection", description: "" },
+  { name: "Female Collection", description: "" },
+];
+
+const slugifyCategory = (value = "") =>
+  String(value)
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
 
 const Header = () => {
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
-  const [isProductsMenuOpen, setIsProductsMenuOpen] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
-  const [scrolled, setScrolled] = useState(false);
-  const [isDesktop, setIsDesktop] = useState(() =>
-    typeof window !== "undefined" ? window.innerWidth >= 768 : false,
-  );
   const location = useLocation();
   const navigate = useNavigate();
-
-  useEffect(() => {
-    const onScroll = () => setScrolled(window.scrollY > 60);
-    const onResize = () => setIsDesktop(window.innerWidth >= 768);
-
-    onResize();
-    window.addEventListener("scroll", onScroll, { passive: true });
-    window.addEventListener("resize", onResize);
-    return () => {
-      window.removeEventListener("scroll", onScroll);
-      window.removeEventListener("resize", onResize);
-    };
-  }, []);
 
   useEffect(() => {
     if (!isMobileMenuOpen) return undefined;
@@ -58,8 +51,6 @@ const Header = () => {
     };
   }, [isMobileMenuOpen]);
 
-  const isScrolled = isDesktop && scrolled;
-
   const dispatch = useDispatch();
   const user = useSelector(selectAuthUser);
   const categories = useSelector(selectCategories);
@@ -70,6 +61,7 @@ const Header = () => {
   const API_URL = (import.meta.env.VITE_API_URL || "/api").replace(/\/$/, "");
   const showAuthPendingState =
     !!accessToken && (!authChecked || (authLoading && !user));
+  const defaultCategoriesEnsured = useRef(false);
 
   const avatarCandidates = useMemo(() => {
     if (!user?.avatar) return [];
@@ -102,6 +94,33 @@ const Header = () => {
     dispatch(fetchCategories());
   }, [dispatch]);
 
+  useEffect(() => {
+    if (defaultCategoriesEnsured.current) {
+      return;
+    }
+
+    if (!user || user.role !== "admin") {
+      return;
+    }
+
+    const existingValues = new Set(
+      categories.map((category) => String(category.value || "").toLowerCase()),
+    );
+    const missingDefaults = DEFAULT_CATEGORIES.filter((category) =>
+      !existingValues.has(slugifyCategory(category.name)),
+    );
+
+    if (missingDefaults.length === 0) {
+      defaultCategoriesEnsured.current = true;
+      return;
+    }
+
+    defaultCategoriesEnsured.current = true;
+    missingDefaults.forEach((category) => {
+      dispatch(createCategory(category)).catch(() => {});
+    });
+  }, [categories, dispatch, user]);
+
   const handleLogout = () => {
     dispatch(logoutUser());
     dispatch(resetCart());
@@ -131,107 +150,84 @@ const Header = () => {
     navigate("/products", { replace: true, state: { search: value } });
   };
 
-  const handleCategoryNavigate = (categoryValue) => {
-    navigate(
-      categoryValue
-        ? `/products?category=${encodeURIComponent(categoryValue)}`
-        : "/products",
-    );
-    setIsProductsMenuOpen(false);
-    setIsMobileMenuOpen(false);
-  };
+  const categoryLinks = useMemo(() => {
+    const defaults = DEFAULT_CATEGORIES.map((category) => ({
+      value: slugifyCategory(category.name),
+      label: category.name,
+    }));
+
+    const resolvedDefaults = defaults.map((entry) => {
+      const matched = categories.find(
+        (category) =>
+          String(category.value || "").toLowerCase() === entry.value,
+      );
+      return {
+        value: entry.value,
+        label: matched?.name || entry.label,
+      };
+    });
+
+    const defaultValues = new Set(resolvedDefaults.map((entry) => entry.value));
+    const extras = categories
+      .map((category) => ({
+        value: String(category.value || "").toLowerCase(),
+        label: category.name,
+      }))
+      .filter((entry) => entry.value && !defaultValues.has(entry.value));
+
+    return [...resolvedDefaults, ...extras].map((entry) => ({
+      to: `/products?category=${encodeURIComponent(entry.value)}`,
+      label: entry.label,
+    }));
+  }, [categories]);
 
   const navLinks = [
     { to: "/", label: "Home" },
-    { to: "/products", label: "All Products" },
+    ...categoryLinks,
     { to: "/about", label: "About Us" },
     { to: "/contact", label: "Contact" },
     ...(user?.role === "admin" ? [{ to: "/admin", label: "Admin" }] : []),
   ];
-  const visibleCategoryLinks = categories.slice(0, 7);
 
-  const renderNavItem = ({ to, label, compact = false }) => {
-    if (to !== "/products") {
-      return (
-        <NavLink
-          key={`${compact ? "compact" : "default"}-${to}`}
-          to={to}
-          className={({ isActive }) =>
-            compact
-              ? `text-[14px] font-medium transition-colors ${
-                  isActive
-                    ? "text-[#68a300]"
-                    : "text-gray-700 hover:text-[#68a300]"
-                }`
-              : `pb-0.5 transition-colors font-medium text-[14px] ${
-                  isActive
-                    ? "text-[#68a300] border-b-2 border-[#68a300]"
-                    : "text-gray-700 hover:text-[#68a300]"
-                }`
-          }
-        >
-          {label}
-        </NavLink>
-      );
+  const isNavActive = (to) => {
+    if (to.startsWith("/products?category=")) {
+      if (location.pathname !== "/products") {
+        return false;
+      }
+      const params = new URLSearchParams(location.search);
+      const activeCategory = (params.get("category") || "").toLowerCase();
+      const targetCategory = decodeURIComponent(to.split("category=")[1] || "")
+        .trim()
+        .toLowerCase();
+      return Boolean(activeCategory && activeCategory === targetCategory);
     }
 
-    return (
-      <div
-        key={`${compact ? "compact" : "default"}-${to}`}
-        className="relative"
-        onMouseEnter={() => setIsProductsMenuOpen(true)}
-        onMouseLeave={() => setIsProductsMenuOpen(false)}
-      >
-        <NavLink
-          to={to}
-          className={({ isActive }) =>
-            compact
-              ? `inline-flex items-center text-[14px] font-medium transition-colors ${
-                  isActive || isProductsMenuOpen
-                    ? "text-[#68a300]"
-                    : "text-gray-700 hover:text-[#68a300]"
-                }`
-              : `inline-flex items-center pb-0.5 transition-colors font-medium text-[14px] ${
-                  isActive || isProductsMenuOpen
-                    ? "text-[#68a300] border-b-2 border-[#68a300]"
-                    : "text-gray-700 hover:text-[#68a300]"
-                }`
-          }
-        >
-          {label}
-          <MdKeyboardArrowDown className="ml-1 text-base" />
-        </NavLink>
+    return location.pathname === to;
+  };
 
-        <div
-          className={`absolute left-0 top-full z-[80] mt-2 w-60 border border-gray-200 bg-white shadow-[0_8px_24px_rgba(15,23,42,0.12)] transition-all duration-200 ${
-            isProductsMenuOpen
-              ? "pointer-events-auto visible opacity-100"
-              : "pointer-events-none invisible opacity-0"
-          }`}
-        >
-          <div className="bg-white">
-            {visibleCategoryLinks.map((category) => (
-              <button
-                key={category._id || category.value}
-                type="button"
-                onClick={() => handleCategoryNavigate(category.value)}
-                className="flex w-full items-center justify-between border-b border-gray-200 px-4 py-3 text-left text-[15px] text-gray-700 transition hover:bg-gray-50 hover:text-[#68a300]"
-              >
-                <span>{category.name}</span>
-                <MdChevronRight className="text-lg text-gray-500" />
-              </button>
-            ))}
-            <button
-              type="button"
-              onClick={() => handleCategoryNavigate("")}
-              className="flex w-full items-center justify-between px-4 py-3 text-left text-[15px] text-gray-700 transition hover:bg-gray-50 hover:text-[#68a300]"
-            >
-              <span>More</span>
-              <MdChevronRight className="text-lg text-gray-500" />
-            </button>
-          </div>
-        </div>
-      </div>
+  const renderNavItem = ({ to, label, compact = false }) => {
+    const isActive = isNavActive(to);
+
+    return (
+      <NavLink
+        key={`${compact ? "compact" : "default"}-${to}`}
+        to={to}
+        className={
+          compact
+            ? `text-[14px] font-medium transition-colors ${
+                isActive
+                  ? "text-[#68a300]"
+                  : "text-gray-700 hover:text-[#68a300]"
+              }`
+            : `pb-0.5 transition-colors font-medium text-[14px] ${
+                isActive
+                  ? "text-[#68a300] border-b-2 border-[#68a300]"
+                  : "text-gray-700 hover:text-[#68a300]"
+              }`
+        }
+      >
+        {label}
+      </NavLink>
     );
   };
 
@@ -324,14 +320,10 @@ const Header = () => {
   return (
     <header className="bg-white border-b sticky top-0 z-50 shadow-sm">
       <div className="max-w-7xl mx-auto px-4">
-        {/* ── Top row: logo + search + icons ── fades/shrinks away on scroll */}
+        {/* ── Top row: logo + search + icons ── */}
         <div
-          className={`flex justify-between items-center transition-all duration-300 ease-in-out ${
+          className={`flex h-16 items-center justify-between ${
             isProfileMenuOpen ? "overflow-visible" : "overflow-hidden"
-          } ${
-            isScrolled
-              ? "h-0 opacity-0 pointer-events-none"
-              : "h-16 opacity-100"
           }`}
         >
           <Link
@@ -380,47 +372,9 @@ const Header = () => {
           {rightIcons}
         </div>
 
-        {/* ── Compact row: logo + nav + icons (only when scrolled) ── */}
-        <div
-          className={`flex items-center transition-all duration-300 ease-in-out ${
-            isProfileMenuOpen || isProductsMenuOpen
-              ? "overflow-visible"
-              : "overflow-hidden"
-          } ${
-            isScrolled
-              ? "h-12 opacity-100"
-              : "h-0 opacity-0 pointer-events-none"
-          }`}
-        >
-          <div className="flex w-1/4 items-center justify-start">
-            <Link
-              to="/"
-              className="flex items-center shrink-0 border-0 outline-none ring-0 focus:outline-none focus:ring-0 focus-visible:outline-none"
-            >
-              <img
-                src="/assets/logos/Logo.png"
-                alt="Naashpati"
-                className="h-5 w-auto border-0 outline-none"
-              />
-            </Link>
-          </div>
-
-          <nav className="hidden md:flex w-2/4 items-center justify-center space-x-6">
-            {navLinks.map((link) => renderNavItem({ ...link, compact: true }))}
-          </nav>
-
-          <div className="flex w-1/4 items-center justify-end">
-            {rightIcons}
-          </div>
-        </div>
-
-        {/* ── Nav links row (shown at top, hidden when scrolled) ── */}
-        <div
-          className={`hidden md:block border-t border-gray-100 transition-all duration-300 ease-in-out ${
-            isProductsMenuOpen ? "overflow-visible" : "overflow-hidden"
-          } ${isScrolled ? "h-0 opacity-0" : "h-11 opacity-100"}`}
-        >
-          <nav className="flex justify-center items-center space-x-8 h-11">
+        {/* ── Nav links row ── */}
+        <div className="hidden md:block border-t border-gray-100">
+          <nav className="flex h-11 items-center justify-center space-x-8">
             {navLinks.map((link) => renderNavItem(link))}
           </nav>
         </div>
