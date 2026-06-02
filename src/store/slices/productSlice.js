@@ -157,6 +157,25 @@ export const deleteCategory = createAsyncThunk(
   },
 );
 
+export const updateCategory = createAsyncThunk(
+  "products/updateCategory",
+  async ({ id, data }, { getState, rejectWithValue }) => {
+    try {
+      const { auth } = getState();
+      const response = await api.put(`/categories/${id}`, data, {
+        headers: {
+          Authorization: `Bearer ${auth.accessToken}`,
+        },
+      });
+      return response.data.data;
+    } catch (error) {
+      return rejectWithValue(
+        error.response?.data?.error || "Failed to update category",
+      );
+    }
+  },
+);
+
 export const createProduct = createAsyncThunk(
   "products/createProduct",
   async (productData, { getState, rejectWithValue }) => {
@@ -324,6 +343,18 @@ const productSlice = createSlice({
         );
       })
       .addCase(deleteCategory.rejected, (state, action) => {
+        state.error = action.payload;
+      })
+      .addCase(updateCategory.fulfilled, (state, action) => {
+        const index = state.categories.findIndex(
+          (category) => category._id === action.payload._id,
+        );
+        if (index !== -1) {
+          state.categories[index] = action.payload;
+          state.categories.sort((a, b) => a.name.localeCompare(b.name));
+        }
+      })
+      .addCase(updateCategory.rejected, (state, action) => {
         state.error = action.payload;
       })
       // Create product

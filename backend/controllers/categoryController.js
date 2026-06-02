@@ -1,6 +1,13 @@
 import Category from "../models/Category.js";
 import Product from "../models/Product.js";
 
+const slugify = (value = "") =>
+  String(value)
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+
 // @desc    Get active categories
 // @route   GET /api/categories
 // @access  Public
@@ -75,6 +82,64 @@ export const deleteCategory = async (req, res) => {
     await category.deleteOne();
 
     res.json({ success: true, message: "Category deleted" });
+  } catch (error) {
+    res.status(500).json({ success: false, error: "Server error" });
+  }
+};
+
+// @desc    Update category
+// @route   PUT /api/categories/:id
+// @access  Private/Admin
+export const updateCategory = async (req, res) => {
+  try {
+    const category = await Category.findById(req.params.id);
+
+    if (!category) {
+      return res
+        .status(404)
+        .json({ success: false, error: "Category not found" });
+    }
+
+    const name = req.body.name?.trim();
+    const description = req.body.description?.trim() || "";
+    const image = req.body.image?.trim() || "";
+
+    if (!name || name.length < 2) {
+      return res.status(400).json({
+        success: false,
+        error: "Category name must be at least 2 characters",
+      });
+    }
+
+    const nextValue = slugify(name);
+    const oldValue = category.value;
+
+    const existing = await Category.findOne({
+      _id: { $ne: category._id },
+      $or: [{ name }, { value: nextValue }],
+    }).lean();
+
+    if (existing) {
+      return res.status(400).json({
+        success: false,
+        error: "Category already exists",
+      });
+    }
+
+    category.name = name;
+    category.description = description;
+    category.image = image;
+    category.value = nextValue;
+    await category.save();
+
+    if (oldValue !== nextValue) {
+      await Product.updateMany(
+        { category: oldValue },
+        { $set: { category: nextValue } },
+      );
+    }
+
+    res.json({ success: true, data: category });
   } catch (error) {
     res.status(500).json({ success: false, error: "Server error" });
   }

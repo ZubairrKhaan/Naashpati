@@ -10,7 +10,12 @@ import { useDispatch, useSelector } from "react-redux";
 import { addToCart } from "../store/slices/cartSlice";
 import { selectAuthUser } from "../store/slices/authSlice";
 import toast from "react-hot-toast";
-import { MdStar, MdShoppingCart } from "react-icons/md";
+import {
+  MdStar,
+  MdShoppingCart,
+  MdFavoriteBorder,
+  MdVisibility,
+} from "react-icons/md";
 
 const ProductCard = ({ product, viewMode = "grid" }) => {
   const dispatch = useDispatch();
@@ -23,6 +28,8 @@ const ProductCard = ({ product, viewMode = "grid" }) => {
   const productUrl = `/products/${product.slug || product._id}`;
   const salePrice = Number(product.salePrice ?? product.price ?? 0);
   const originalPrice = Number(product.originalPrice ?? product.price ?? 0);
+  const stockCount = Number(product.stock ?? 0);
+  const isOutOfStock = stockCount <= 0;
   const hasDiscount =
     Number.isFinite(originalPrice) &&
     Number.isFinite(salePrice) &&
@@ -51,13 +58,23 @@ const ProductCard = ({ product, viewMode = "grid" }) => {
       return;
     }
 
-    if (product.stock === 0) {
+    if (isOutOfStock) {
       toast.error("Product is out of stock");
       return;
     }
 
     dispatch(addToCart({ product, quantity: 1 }));
     toast.success("Added to cart!");
+  };
+
+  const handleWishlistClick = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+  };
+
+  const handleQuickViewClick = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
   };
 
   const renderStars = (rating) => {
@@ -83,6 +100,7 @@ const ProductCard = ({ product, viewMode = "grid" }) => {
           <img
             src={productImage}
             alt={product.name}
+            loading="lazy"
             className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
           />
         </div>
@@ -113,12 +131,12 @@ const ProductCard = ({ product, viewMode = "grid" }) => {
               ) : null}
               <span
                 className={`rounded-full px-2 py-1 font-medium ${
-                  product.stock > 0
+                  !isOutOfStock
                     ? "bg-green-50 text-green-700"
                     : "bg-red-50 text-red-700"
                 }`}
               >
-                {product.stock > 0 ? `Stock: ${product.stock}` : "Out of stock"}
+                {!isOutOfStock ? `Stock: ${stockCount}` : "Out of stock"}
               </span>
               {hasDiscount ? (
                 <span className="rounded-full bg-orange-50 px-2 py-1 font-semibold text-orange-700">
@@ -143,7 +161,7 @@ const ProductCard = ({ product, viewMode = "grid" }) => {
 
             <button
               onClick={handleAddToCart}
-              disabled={product.stock === 0 || isAdmin}
+              disabled={isOutOfStock || isAdmin}
               className="bg-transparent border-0 p-0 text-[#68a300] disabled:cursor-not-allowed disabled:opacity-50"
               aria-label="Add to cart"
             >
@@ -151,9 +169,94 @@ const ProductCard = ({ product, viewMode = "grid" }) => {
             </button>
           </div>
 
-          {product.stock === 0 && (
+          {isOutOfStock && (
             <p className="mt-2 text-sm text-accent-600">Out of stock</p>
           )}
+        </div>
+      </Link>
+    );
+  }
+
+  if (viewMode === "trending") {
+    return (
+      <Link
+        to={productUrl}
+        className="group flex h-full flex-col overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-lg"
+      >
+        <div className="relative aspect-square overflow-hidden bg-gray-50">
+          <img
+            src={productImage}
+            alt={product.name}
+            loading="lazy"
+            className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
+          />
+          <div className="absolute left-3 top-3 flex flex-col gap-2">
+            {hasDiscount ? (
+              <span className="rounded-full bg-orange-500/90 px-2 py-1 text-xs font-semibold text-white">
+                -{discountPercent}%
+              </span>
+            ) : null}
+            <span
+              className={`rounded-full px-2 py-1 text-xs font-semibold ${
+                !isOutOfStock
+                  ? "bg-emerald-500/90 text-white"
+                  : "bg-red-500/90 text-white"
+              }`}
+            >
+              {!isOutOfStock ? `Stock: ${stockCount}` : "Out of stock"}
+            </span>
+          </div>
+          <button
+            type="button"
+            onClick={handleWishlistClick}
+            aria-label="Add to wishlist"
+            className="absolute right-3 top-3 flex h-9 w-9 items-center justify-center rounded-full bg-white/90 text-gray-700 shadow-sm transition hover:scale-105"
+          >
+            <MdFavoriteBorder className="h-5 w-5" />
+          </button>
+        </div>
+
+        <div className="flex flex-1 flex-col p-4">
+          {product.category ? (
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-gray-500">
+              {product.category}
+            </p>
+          ) : null}
+          <h3 className="mt-2 line-clamp-2 text-base font-semibold text-gray-900">
+            {product.name}
+          </h3>
+
+          <div className="mt-3 flex items-center gap-2">
+            <span className="text-lg font-semibold text-gray-900">
+              <span className="mr-1 text-xs align-super text-black-100">
+                PKR
+              </span>
+              {salePrice.toFixed(2)}
+            </span>
+            {hasDiscount ? (
+              <span className="text-sm text-gray-400 line-through">
+                PKR {originalPrice.toFixed(2)}
+              </span>
+            ) : null}
+          </div>
+
+          <div className="mt-4 flex items-center gap-2">
+            <button
+              onClick={handleAddToCart}
+              disabled={isOutOfStock || isAdmin}
+              className="inline-flex flex-1 items-center justify-center gap-2 rounded-full bg-[#68a300] px-3 py-2 text-sm font-semibold text-white transition hover:bg-[#5f9600] disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              <MdShoppingCart className="h-4 w-4" />
+              Add to Cart
+            </button>
+            <button
+              type="button"
+              onClick={handleQuickViewClick}
+              className="inline-flex items-center justify-center rounded-full border border-gray-200 px-3 py-2 text-xs font-semibold text-gray-700 transition hover:border-gray-300"
+            >
+              <MdVisibility className="h-4 w-4" />
+            </button>
+          </div>
         </div>
       </Link>
     );
@@ -169,6 +272,7 @@ const ProductCard = ({ product, viewMode = "grid" }) => {
           <img
             src={productImage}
             alt={product.name}
+            loading="lazy"
             className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
           />
         </div>
@@ -204,7 +308,7 @@ const ProductCard = ({ product, viewMode = "grid" }) => {
 
             <button
               onClick={handleAddToCart}
-              disabled={product.stock === 0 || isAdmin}
+              disabled={isOutOfStock || isAdmin}
               className="bg-transparent border-0 p-0 text-[#68a300] disabled:cursor-not-allowed disabled:opacity-50"
               aria-label="Add to cart"
             >
@@ -212,7 +316,7 @@ const ProductCard = ({ product, viewMode = "grid" }) => {
             </button>
           </div>
 
-          {product.stock === 0 && (
+          {isOutOfStock && (
             <p className="mt-1 text-xs text-accent-600">Out of stock</p>
           )}
         </div>
@@ -230,6 +334,7 @@ const ProductCard = ({ product, viewMode = "grid" }) => {
           <img
             src={productImage}
             alt={product.name}
+            loading="lazy"
             className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
           />
         </div>
@@ -253,7 +358,7 @@ const ProductCard = ({ product, viewMode = "grid" }) => {
 
             <button
               onClick={handleAddToCart}
-              disabled={product.stock === 0 || isAdmin}
+              disabled={isOutOfStock || isAdmin}
               className="bg-transparent border-0 p-0 text-[#68a300] disabled:cursor-not-allowed disabled:opacity-50"
               aria-label="Add to cart"
             >
@@ -274,6 +379,7 @@ const ProductCard = ({ product, viewMode = "grid" }) => {
         <img
           src={productImage}
           alt={product.name}
+          loading="lazy"
           className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
         />
       </div>
@@ -307,7 +413,7 @@ const ProductCard = ({ product, viewMode = "grid" }) => {
 
           <button
             onClick={handleAddToCart}
-            disabled={product.stock === 0 || isAdmin}
+            disabled={isOutOfStock || isAdmin}
             className="bg-transparent border-0 p-0 text-[#68a300] disabled:cursor-not-allowed disabled:opacity-50"
             aria-label="Add to cart"
           >
@@ -315,7 +421,7 @@ const ProductCard = ({ product, viewMode = "grid" }) => {
           </button>
         </div>
 
-        {product.stock === 0 && (
+        {isOutOfStock && (
           <p className="text-accent-600 text-sm mt-2">Out of stock</p>
         )}
       </div>
