@@ -6,6 +6,18 @@ const heroBadgeSchema = new mongoose.Schema(
       type: [String],
       default: [],
     },
+    genderImages: {
+      female: {
+        type: String,
+        trim: true,
+        default: "",
+      },
+      male: {
+        type: String,
+        trim: true,
+        default: "",
+      },
+    },
   },
   { timestamps: true },
 );

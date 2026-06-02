@@ -73,7 +73,9 @@ import {
 import {
   fetchHeroBadges,
   updateHeroBadges,
+  updateHeroGenderImages,
   selectHeroBadges,
+  selectHeroGenderImages,
 } from "../store/slices/heroBadgeSlice";
 import {
   fetchAllProductBanners,
@@ -96,7 +98,8 @@ const AdminDashboard = () => {
   const orderPagination = useSelector((state) => state.orders.pagination);
   const userPagination = useSelector((state) => state.users.pagination);
   const heroSlides = useSelector(selectAllHeroSlides);
-  const heroBadges = useSelector(selectHeroBadges);
+  const heroBadgeImages = useSelector(selectHeroBadges);
+  const heroGenderImages = useSelector(selectHeroGenderImages);
   const productBanners = useSelector(selectAllProductBanners);
 
   const [activeTab, setActiveTab] = useState("overview");
@@ -129,6 +132,19 @@ const AdminDashboard = () => {
   const [heroBadgeImageFiles, setHeroBadgeImageFiles] = useState([]);
   const [heroBadgeImagePreviews, setHeroBadgeImagePreviews] = useState([]);
   const [updatingHeroBadges, setUpdatingHeroBadges] = useState(false);
+  const [genderImageFiles, setGenderImageFiles] = useState({
+    female: null,
+    male: null,
+  });
+  const [genderImagePreviews, setGenderImagePreviews] = useState({
+    female: "",
+    male: "",
+  });
+  const [genderImageRemovals, setGenderImageRemovals] = useState({
+    female: false,
+    male: false,
+  });
+  const [savingGenderImages, setSavingGenderImages] = useState(false);
   const [uploadingHeroImage, setUploadingHeroImage] = useState(false);
   const [aboutVideoFile, setAboutVideoFile] = useState(null);
   const [aboutVideoPreview, setAboutVideoPreview] = useState("");
@@ -1608,7 +1624,7 @@ const AdminDashboard = () => {
       return;
     }
 
-    const maxNew = Math.max(0, 20 - heroBadges.length);
+    const maxNew = Math.max(0, 20 - heroBadgeImages.length);
     const selectedFiles = Array.from(files).slice(0, maxNew);
 
     if (selectedFiles.length < files.length) {
@@ -1656,7 +1672,10 @@ const AdminDashboard = () => {
         uploadedBadgeImages.push(uploadedUrl);
       }
 
-      const mergedBadges = [...heroBadges, ...uploadedBadgeImages].slice(0, 20);
+      const mergedBadges = [...heroBadgeImages, ...uploadedBadgeImages].slice(
+        0,
+        20,
+      );
 
       await dispatch(updateHeroBadges(mergedBadges)).unwrap();
 
@@ -1671,6 +1690,89 @@ const AdminDashboard = () => {
       );
     } finally {
       setUpdatingHeroBadges(false);
+    }
+  };
+
+  const handleGenderImageChange = (key, file) => {
+    if (!file) {
+      return;
+    }
+
+    setGenderImageFiles((prev) => ({
+      ...prev,
+      [key]: file,
+    }));
+    setGenderImageRemovals((prev) => ({
+      ...prev,
+      [key]: false,
+    }));
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      setGenderImagePreviews((prev) => ({
+        ...prev,
+        [key]: event.target?.result || "",
+      }));
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleRemoveGenderImage = (key) => {
+    setGenderImageFiles((prev) => ({
+      ...prev,
+      [key]: null,
+    }));
+    setGenderImagePreviews((prev) => ({
+      ...prev,
+      [key]: "",
+    }));
+    setGenderImageRemovals((prev) => ({
+      ...prev,
+      [key]: true,
+    }));
+  };
+
+  const handleSaveGenderImages = async (e) => {
+    e.preventDefault();
+
+    const updates = {};
+
+    if (genderImageRemovals.female) {
+      updates.female = "";
+    }
+
+    if (genderImageRemovals.male) {
+      updates.male = "";
+    }
+
+    try {
+      if (genderImageFiles.female) {
+        updates.female = await uploadDashboardImage(genderImageFiles.female);
+      }
+
+      if (genderImageFiles.male) {
+        updates.male = await uploadDashboardImage(genderImageFiles.male);
+      }
+
+      if (!Object.keys(updates).length) {
+        toast.error("Select or clear at least one gender image");
+        return;
+      }
+
+      setSavingGenderImages(true);
+      await dispatch(updateHeroGenderImages(updates)).unwrap();
+      setGenderImageFiles({ female: null, male: null });
+      setGenderImagePreviews({ female: "", male: "" });
+      setGenderImageRemovals({ female: false, male: false });
+      toast.success("Shop by gender images updated successfully");
+    } catch (error) {
+      toast.error(
+        typeof error === "string"
+          ? error
+          : error?.message || "Failed to update gender images",
+      );
+    } finally {
+      setSavingGenderImages(false);
     }
   };
 
@@ -1866,7 +1968,7 @@ const AdminDashboard = () => {
               onClick={() => setActiveTab("hero")}
               className={getTabButtonClass("hero")}
             >
-              Hero
+              Home
             </button>
             <button
               onClick={() => setActiveTab("batches")}
@@ -2569,13 +2671,13 @@ const AdminDashboard = () => {
                       Hero Certificate Badges
                     </h2>
 
-                    {heroBadges.length > 0 && (
+                    {heroBadgeImages.length > 0 && (
                       <div className="mb-4">
                         <p className="mb-2 text-sm font-medium text-gray-700">
-                          Current Badges ({heroBadges.length}/20)
+                          Current Badges ({heroBadgeImages.length}/20)
                         </p>
                         <div className="grid grid-cols-4 gap-2">
-                          {heroBadges.map((url, index) => (
+                          {heroBadgeImages.map((url, index) => (
                             <div
                               key={`current-badge-${index}`}
                               className="relative overflow-hidden rounded-full border"
@@ -2588,7 +2690,7 @@ const AdminDashboard = () => {
                               <button
                                 type="button"
                                 onClick={async () => {
-                                  const updated = heroBadges.filter(
+                                  const updated = heroBadgeImages.filter(
                                     (_, i) => i !== index,
                                   );
                                   try {
@@ -2661,6 +2763,81 @@ const AdminDashboard = () => {
                           {updatingHeroBadges
                             ? "Saving..."
                             : "Save Certificate Badges"}
+                        </span>
+                      </button>
+                    </form>
+                  </div>
+
+                  <div className="rounded-lg border bg-gray-50 p-5">
+                    <h2 className="mb-4 text-2xl font-semibold">
+                      Shop By Gender Images
+                    </h2>
+
+                    <form
+                      className="space-y-4"
+                      onSubmit={handleSaveGenderImages}
+                    >
+                      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                        {[
+                          { key: "female", label: "Female Collection" },
+                          { key: "male", label: "Male Collection" },
+                        ].map(({ key, label }) => {
+                          const preview =
+                            genderImagePreviews[key] ||
+                            resolveMediaUrl(heroGenderImages?.[key]);
+
+                          return (
+                            <div
+                              key={key}
+                              className="rounded-lg border bg-white p-3"
+                            >
+                              <p className="mb-2 text-xs font-semibold uppercase text-gray-500">
+                                {label}
+                              </p>
+                              {preview ? (
+                                <img
+                                  src={preview}
+                                  alt={`${label} preview`}
+                                  className="mb-3 h-32 w-full rounded object-cover"
+                                />
+                              ) : (
+                                <div className="mb-3 flex h-32 items-center justify-center rounded border-2 border-dashed border-gray-300 text-xs text-gray-400">
+                                  No image selected
+                                </div>
+                              )}
+                              <input
+                                type="file"
+                                accept="image/*"
+                                onChange={(e) =>
+                                  handleGenderImageChange(
+                                    key,
+                                    e.target.files[0],
+                                  )
+                                }
+                                className="w-full rounded border border-gray-300 px-2 py-2 text-xs"
+                              />
+                              <button
+                                type="button"
+                                onClick={() => handleRemoveGenderImage(key)}
+                                className="mt-2 w-full rounded border border-red-200 px-2 py-2 text-xs text-red-600 hover:bg-red-50"
+                              >
+                                Clear
+                              </button>
+                            </div>
+                          );
+                        })}
+                      </div>
+
+                      <button
+                        type="submit"
+                        disabled={savingGenderImages}
+                        className="flex items-center space-x-2 rounded bg-[#68a300] px-4 py-2 text-white hover:bg-[#5f9600] disabled:opacity-60"
+                      >
+                        <FaCheck />
+                        <span>
+                          {savingGenderImages
+                            ? "Saving..."
+                            : "Save Gender Images"}
                         </span>
                       </button>
                     </form>
