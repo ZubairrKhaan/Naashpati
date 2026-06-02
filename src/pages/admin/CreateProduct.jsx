@@ -258,6 +258,7 @@ const CreateProduct = ({ onClose, onSuccess, initialCategory = "" }) => {
       videoUrl,
       status,
       newArrival,
+      trending,
       attributes,
       shipping,
       seo,
@@ -379,6 +380,7 @@ const CreateProduct = ({ onClose, onSuccess, initialCategory = "" }) => {
         videoUrl: (videoUrl || "").trim(),
         status,
         newArrival,
+        trending,
         attributes: {
           ...attributes,
           pages:
@@ -905,6 +907,17 @@ const CreateProduct = ({ onClose, onSuccess, initialCategory = "" }) => {
               className="h-4 w-4 rounded border-gray-300 text-green-600 focus:ring-green-500"
             />
             <span className="ml-2 text-sm text-gray-700">New Arrival</span>
+          </label>
+
+          <label className="inline-flex items-center">
+            <input
+              type="checkbox"
+              name="trending"
+              checked={formData.trending}
+              onChange={handleChange}
+              className="h-4 w-4 rounded border-gray-300 text-green-600 focus:ring-green-500"
+            />
+            <span className="ml-2 text-sm text-gray-700">Trending</span>
           </label>
 
           <label className="inline-flex items-center">

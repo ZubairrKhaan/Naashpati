@@ -3,6 +3,7 @@ import {
   recordAddToCart,
   recordProductSale,
 } from "../services/trendingProductService.js";
+import Product from "../models/Product.js";
 import { getBestsellers } from "../services/bestsellerService.js";
 import { invalidateBestsellerCache } from "../services/bestsellerCacheService.js";
 import { toBestsellerResource } from "../dtos/bestsellerResource.js";
@@ -15,9 +16,49 @@ import { toBestsellerResource } from "../dtos/bestsellerResource.js";
 export const getTrendingProducts = async (req, res) => {
   try {
     const useCache = req.query.cache !== "false";
-    const page = Number(req.query.page) || 1;
-    const limit = Number(req.query.limit) || 8;
+    const page = Math.max(1, Number(req.query.page) || 1);
+    const limit = Math.min(50, Math.max(1, Number(req.query.limit) || 8));
     const category = req.query.category || "all";
+    const sortKey = String(req.query.sort || "newest").toLowerCase();
+    const skip = (page - 1) * limit;
+
+    const trendingQuery = {
+      isActive: true,
+      status: "published",
+      stock: { $gt: 0 },
+      trending: true,
+    };
+
+    if (category && category !== "all") {
+      trendingQuery.category = category;
+    }
+
+    const sortMap = {
+      newest: { createdAt: -1 },
+      popularity: { trendingScore: -1, createdAt: -1 },
+    };
+    const sort = sortMap[sortKey] || sortMap.newest;
+
+    const [trendingProducts, totalTrending] = await Promise.all([
+      Product.find(trendingQuery).sort(sort).skip(skip).limit(limit).lean(),
+      Product.countDocuments(trendingQuery),
+    ]);
+
+    if (totalTrending > 0) {
+      return res.json({
+        success: true,
+        data: trendingProducts,
+        count: trendingProducts.length,
+        pagination: {
+          page,
+          limit,
+          total: totalTrending,
+          pages: Math.ceil(totalTrending / limit),
+        },
+        timestamp: new Date().toISOString(),
+      });
+    }
+
     const result = await getBestsellers({
       page,
       limit,
@@ -25,7 +66,7 @@ export const getTrendingProducts = async (req, res) => {
       useCache,
     });
 
-    res.json({
+    return res.json({
       success: true,
       data: result.data.map(toBestsellerResource),
       count: result.data.length,

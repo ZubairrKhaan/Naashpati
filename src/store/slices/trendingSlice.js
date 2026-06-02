@@ -4,9 +4,18 @@ import api from "../../api/axios";
 // Async thunk to fetch trending products
 export const fetchTrendingProducts = createAsyncThunk(
   "trending/fetchTrendingProducts",
-  async (_, { rejectWithValue }) => {
+  async (params = {}, { rejectWithValue }) => {
     try {
-      const response = await api.get("/products/trending");
+      const query = new URLSearchParams();
+      if (params.limit) query.set("limit", String(params.limit));
+      if (params.sort) query.set("sort", params.sort);
+      if (params.cache === false) query.set("cache", "false");
+      if (params.category) query.set("category", params.category);
+
+      const queryString = query.toString();
+      const response = await api.get(
+        `/products/trending${queryString ? `?${queryString}` : ""}`,
+      );
       return response.data;
     } catch (error) {
       return rejectWithValue(

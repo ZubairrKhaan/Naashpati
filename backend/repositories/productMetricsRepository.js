@@ -100,6 +100,7 @@ export const listBestsellersPaginated = async ({
 
   const productMatch = {
     isActive: true,
+    status: "published",
     stock: { $gt: 0 },
   };
 

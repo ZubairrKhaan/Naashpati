@@ -19,6 +19,7 @@ import {
   selectProducts,
   selectCategories,
   createCategory,
+  updateCategory,
   deleteCategory,
   deleteProduct,
 } from "../store/slices/productSlice";
@@ -116,6 +117,16 @@ const AdminDashboard = () => {
   const [categoryImageFile, setCategoryImageFile] = useState(null);
   const [categoryImagePreview, setCategoryImagePreview] = useState(null);
   const [uploadingCategoryImage, setUploadingCategoryImage] = useState(false);
+  const [editingCategory, setEditingCategory] = useState(null);
+  const [categoryEditForm, setCategoryEditForm] = useState({
+    name: "",
+    description: "",
+    image: "",
+  });
+  const [categoryEditImageFile, setCategoryEditImageFile] = useState(null);
+  const [categoryEditImagePreview, setCategoryEditImagePreview] =
+    useState("");
+  const [savingCategoryEdit, setSavingCategoryEdit] = useState(false);
   const [productBannerForm, setProductBannerForm] = useState({
     displayOrder: 0,
   });
@@ -1533,6 +1544,60 @@ const AdminDashboard = () => {
     }
   };
 
+  const handleEditCategory = (category) => {
+    setEditingCategory(category);
+    setCategoryEditForm({
+      name: category?.name || "",
+      description: category?.description || "",
+      image: category?.image || "",
+    });
+    setCategoryEditImageFile(null);
+    setCategoryEditImagePreview("");
+  };
+
+  const handleUpdateCategory = async (e) => {
+    e.preventDefault();
+
+    if (!editingCategory?._id) {
+      return;
+    }
+
+    if (!categoryEditForm.name.trim()) {
+      toast.error("Category name is required");
+      return;
+    }
+
+    try {
+      setSavingCategoryEdit(true);
+      let imageUrl = categoryEditForm.image || "";
+
+      if (categoryEditImageFile) {
+        imageUrl = await uploadDashboardImage(categoryEditImageFile);
+      }
+
+      await dispatch(
+        updateCategory({
+          id: editingCategory._id,
+          data: {
+            name: categoryEditForm.name.trim(),
+            description: categoryEditForm.description.trim(),
+            image: imageUrl,
+          },
+        }),
+      ).unwrap();
+
+      setEditingCategory(null);
+      setCategoryEditForm({ name: "", description: "", image: "" });
+      setCategoryEditImageFile(null);
+      setCategoryEditImagePreview("");
+      toast.success("Category updated successfully");
+    } catch (error) {
+      toast.error(error?.message || String(error) || "Failed to update category");
+    } finally {
+      setSavingCategoryEdit(false);
+    }
+  };
+
   const handleCreateHeroSlide = async (e) => {
     e.preventDefault();
 
@@ -2327,53 +2392,42 @@ const AdminDashboard = () => {
                   <h2 className="text-2xl font-semibold mb-6">
                     Category Management
                   </h2>
-                  <div className="overflow-x-auto">
-                    <table className="min-w-full table-auto">
-                      <thead>
-                        <tr className="bg-gray-50">
-                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                            Image
-                          </th>
-                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                            Name
-                          </th>
-                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                            Value
-                          </th>
-                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                            Description
-                          </th>
-                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                            Actions
-                          </th>
-                        </tr>
-                      </thead>
-                      <tbody className="bg-white divide-y divide-gray-200">
-                        {categories.map((category) => (
-                          <tr key={category._id || category.value}>
-                            <td className="px-4 py-4">
-                              {category.image ? (
-                                <img
-                                  src={resolveMediaUrl(category.image)}
-                                  alt={category.name}
-                                  className="w-10 h-10 object-cover rounded-full border border-gray-200"
-                                />
-                              ) : (
-                                <div className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center text-gray-400 text-xs border border-gray-200">
-                                  N/A
-                                </div>
-                              )}
-                            </td>
-                            <td className="px-4 py-4 text-sm font-medium text-gray-900">
-                              {category.name}
-                            </td>
-                            <td className="px-4 py-4 text-sm text-gray-500">
-                              {category.value}
-                            </td>
-                            <td className="px-4 py-4 text-sm text-gray-500">
-                              {category.description || "-"}
-                            </td>
-                            <td className="px-4 py-4 text-sm font-medium">
+                  <div className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-3">
+                    {categories.map((category) => (
+                      <div
+                        key={category._id || category.value}
+                        className="overflow-hidden rounded-xl border bg-white shadow-sm"
+                      >
+                        <div className="relative aspect-[4/3] overflow-hidden bg-gray-100">
+                          {category.image ? (
+                            <img
+                              src={resolveMediaUrl(category.image)}
+                              alt={category.name}
+                              className="h-full w-full object-cover"
+                            />
+                          ) : (
+                            <div className="flex h-full w-full items-center justify-center text-sm text-gray-400">
+                              No image
+                            </div>
+                          )}
+                        </div>
+                        <div className="space-y-2 p-4">
+                          <div className="flex items-start justify-between gap-3">
+                            <div>
+                              <h3 className="text-lg font-semibold text-gray-900">
+                                {category.name}
+                              </h3>
+                              <p className="text-xs uppercase tracking-[0.18em] text-gray-400">
+                                {category.value}
+                              </p>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <button
+                                onClick={() => handleEditCategory(category)}
+                                className="text-blue-600 hover:text-blue-900"
+                              >
+                                <FaEdit />
+                              </button>
                               <button
                                 onClick={() =>
                                   handleDeleteCategory(
@@ -2385,11 +2439,14 @@ const AdminDashboard = () => {
                               >
                                 <FaTrash />
                               </button>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
+                            </div>
+                          </div>
+                          <p className="text-sm text-gray-500">
+                            {category.description || "No description yet."}
+                          </p>
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 </div>
               </div>
@@ -4362,6 +4419,107 @@ const AdminDashboard = () => {
                 }}
               />
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Category Modal */}
+      {editingCategory && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="w-full max-w-lg rounded-lg bg-white shadow-xl">
+            <div className="flex items-center justify-between border-b p-6">
+              <h2 className="text-xl font-semibold text-gray-900">
+                Edit Category
+              </h2>
+              <button
+                onClick={() => setEditingCategory(null)}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <FaTimes />
+              </button>
+            </div>
+            <form className="space-y-4 p-6" onSubmit={handleUpdateCategory}>
+              <div>
+                <label className="mb-2 block text-sm font-medium text-gray-700">
+                  Category Name
+                </label>
+                <input
+                  type="text"
+                  value={categoryEditForm.name}
+                  onChange={(e) =>
+                    setCategoryEditForm((prev) => ({
+                      ...prev,
+                      name: e.target.value,
+                    }))
+                  }
+                  className="w-full rounded border border-gray-300 px-3 py-2 text-sm"
+                  placeholder="e.g. Skincare"
+                />
+              </div>
+              <div>
+                <label className="mb-2 block text-sm font-medium text-gray-700">
+                  Description
+                </label>
+                <textarea
+                  value={categoryEditForm.description}
+                  onChange={(e) =>
+                    setCategoryEditForm((prev) => ({
+                      ...prev,
+                      description: e.target.value,
+                    }))
+                  }
+                  rows={3}
+                  className="w-full rounded border border-gray-300 px-3 py-2 text-sm"
+                  placeholder="Optional short description for the home page"
+                />
+              </div>
+              <div>
+                <label className="mb-2 block text-sm font-medium text-gray-700">
+                  Category Image
+                </label>
+                {(categoryEditImagePreview || categoryEditForm.image) && (
+                  <img
+                    src={
+                      categoryEditImagePreview ||
+                      resolveMediaUrl(categoryEditForm.image)
+                    }
+                    alt="Preview"
+                    className="mb-3 h-32 w-full rounded-lg object-cover"
+                  />
+                )}
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={(e) => {
+                    const file = e.target.files[0];
+                    if (file) {
+                      setCategoryEditImageFile(file);
+                      const reader = new FileReader();
+                      reader.onload = (ev) =>
+                        setCategoryEditImagePreview(ev.target.result);
+                      reader.readAsDataURL(file);
+                    }
+                  }}
+                  className="w-full rounded border border-gray-300 px-3 py-2 text-sm"
+                />
+              </div>
+              <div className="flex justify-end gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setEditingCategory(null)}
+                  className="rounded border border-gray-300 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={savingCategoryEdit}
+                  className="rounded bg-[#68a300] px-4 py-2 text-sm text-white hover:bg-[#5f9600] disabled:opacity-60"
+                >
+                  {savingCategoryEdit ? "Saving..." : "Save Changes"}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

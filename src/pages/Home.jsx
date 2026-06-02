@@ -230,6 +230,66 @@ const Home = () => {
         </div>
       </section>
 
+      {/* Trending Products */}
+      <TrendingProducts />
+
+      {/* Categories */}
+      <section className="bg-white py-16 px-6">
+        <div className="max-w-7xl mx-auto">
+          <div className="mb-10 flex items-center justify-between border-b border-gray-900 pb-4">
+            <h2
+              className="text-xl font-semibold text-gray-900"
+              style={{ fontFamily: "Poppins, sans-serif, Inter, system-ui" }}
+            >
+              Shop by Category
+            </h2>
+            <Link
+              to="/products"
+              className="text-sm font-semibold text-gray-600 hover:text-gray-900"
+            >
+              View all
+            </Link>
+          </div>
+
+          <div className="flex gap-5 overflow-x-auto pb-4">
+            {categories.map((category) => (
+              <Link
+                key={category.value}
+                to={`/products?category=${category.value}`}
+                className="group min-w-[220px] shrink-0"
+              >
+                <div className="relative aspect-[4/3] overflow-hidden rounded-2xl bg-gray-100">
+                  {category.image ? (
+                    <img
+                      src={resolveMediaUrl(category.image)}
+                      alt={category.name}
+                      loading="lazy"
+                      className="h-[224px] w-[224px] object-cover transition duration-300 group-hover:scale-[1.03]"
+                    />
+                  ) : (
+                    <div className="flex h-full w-full items-center justify-center">
+                      <FaSeedling className="text-4xl text-[#68a300]" />
+                    </div>
+                  )}
+                </div>
+                <p className="mt-3 text-center text-sm font-medium text-gray-700">
+                  {category.name}
+                </p>
+              </Link>
+            ))}
+          </div>
+
+          <div className="mt-10 text-center">
+            <Link
+              to="/products"
+              className="inline-flex items-center justify-center bg-[#232323] border border-[#232323] text-white px-4 py-2 text-[14px] font-semibold text-black transition hover:bg-[#ffffff] hover:text-black hover:border hover:border-[#232323]"
+            >
+              View All Products
+            </Link>
+          </div>
+        </div>
+      </section>
+
       {/* Certificates Strip */}
       {heroCertificateBadges.length > 0 && (
         <section className="bg-[#ffffff] py-8">
@@ -282,64 +342,6 @@ const Home = () => {
           </div>
         </section>
       )}
-
-      {/* Categories */}
-      <section className="bg-white py-16 px-6">
-        <div className="max-w-7xl mx-auto">
-          <div className="mb-12 flex items-center justify-center gap-6">
-            <span className="hidden h-px flex-1 bg-[#1f2937] md:block" />
-            <h2
-              className="text-center font-extrabold uppercase tracking-[0.06em] text-[#232323] font-sans"
-              style={{
-                fontFamily: "Poppins, sans-serif, Inter, system-ui",
-                fontSize: "16px",
-              }}
-            >
-              Herbal Choice For Your Health
-            </h2>
-            <span className="hidden h-px flex-1 bg-[#1f2937] md:block" />
-          </div>
-
-          <div className="grid grid-cols-3 gap-3 sm:gap-4 md:grid-cols-4 lg:grid-cols-5">
-            {categories.map((category) => {
-              return (
-                <Link
-                  key={category.value}
-                  to={`/products?category=${category.value}`}
-                  className="group rounded-xl bg-[#ffffff] px-3 py-4 text-center transition-all duration-300 hover:-translate-y-1"
-                >
-                  <div className="mx-auto mb-4 flex h-24 w-24 shrink-0 items-center justify-center overflow-hidden rounded-full bg-white transition-all">
-                    {category.image ? (
-                      <img
-                        src={resolveMediaUrl(category.image)}
-                        alt={category.name}
-                        className="h-full w-full rounded-full object-cover"
-                      />
-                    ) : (
-                      <FaSeedling className="text-3xl text-[#68a300]" />
-                    )}
-                  </div>
-                  <h3 className="text-lg font-semibold text-gray-900 mb-2">
-                    {category.name}
-                  </h3>
-                </Link>
-              );
-            })}
-          </div>
-
-          <div className="mt-10 text-center">
-            <Link
-              to="/products"
-              className="inline-flex items-center justify-center bg-[#232323] border border-[#232323] text-white px-4 py-2 text-[14px] font-semibold text-black transition hover:bg-[#ffffff] hover:text-black hover:border hover:border-[#232323]"
-            >
-              View All Products
-            </Link>
-          </div>
-        </div>
-      </section>
-
-      {/* Trending Products */}
-      <TrendingProducts />
 
       {/* Features */}
       <section className="py-16 bg-white grid grid-cols-2 md:grid-cols-4 gap-8 text-center px-6">

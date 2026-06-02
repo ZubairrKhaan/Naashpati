@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { Link } from "react-router-dom";
 import { MdChevronRight } from "react-icons/md";
@@ -10,7 +10,7 @@ import {
   selectTrendingError,
 } from "../store/slices/trendingSlice";
 import ProductCard from "./ProductCard";
-import Loader from "./Loader";
+import Carousel from "./Carousel";
 import "../styles/TrendingProducts.css";
 
 const TrendingProducts = () => {
@@ -23,7 +23,7 @@ const TrendingProducts = () => {
   const [isNewArrivalsLoading, setIsNewArrivalsLoading] = useState(false);
 
   useEffect(() => {
-    dispatch(fetchTrendingProducts());
+    dispatch(fetchTrendingProducts({ limit: 8 }));
   }, [dispatch]);
 
   useEffect(() => {
@@ -61,29 +61,15 @@ const TrendingProducts = () => {
     };
   }, []);
 
-  const visibleProducts =
-    activeTab === "new-arrivals" ? newArrivals : trendingProducts;
+  const visibleProducts = useMemo(
+    () => (activeTab === "new-arrivals" ? newArrivals : trendingProducts),
+    [activeTab, newArrivals, trendingProducts],
+  );
   const showLoader =
     isLoading || (activeTab === "new-arrivals" && isNewArrivalsLoading);
-
-  if (showLoader) {
-    return (
-      <section className="trending-section">
-        <div className="trending-container">
-          <Loader />
-        </div>
-      </section>
-    );
-  }
-
-  if (error) {
-    console.error("Error fetching trending products:", error);
-    return null;
-  }
-
-  if (!trendingProducts || trendingProducts.length === 0) {
-    return null;
-  }
+  const hasProducts = visibleProducts.length > 0;
+  const showEmptyState = !showLoader && !error && !hasProducts;
+  const trendingAvailable = trendingProducts.length > 0;
 
   return (
     <section className="trending-section">
@@ -114,22 +100,53 @@ const TrendingProducts = () => {
           </div>
         </div>
 
-        {/* Products Grid */}
-        <div className="trending-products-grid">
-          {visibleProducts.map((product) => (
-            <div key={product._id} className="trending-product-wrapper">
-              <ProductCard product={product} />
-            </div>
-          ))}
-        </div>
-
-        {activeTab === "new-arrivals" &&
-          !isNewArrivalsLoading &&
-          visibleProducts.length === 0 && (
-            <p className="trending-empty-state">
-              No new arrivals from the last 14 days yet.
-            </p>
-          )}
+        {/* Products */}
+        {showLoader ? (
+          <div className="trending-products-grid">
+            {Array.from({ length: 8 }).map((_, index) => (
+              <div
+                key={`trending-skeleton-${index}`}
+                className="h-full animate-pulse rounded-2xl border border-gray-100 bg-white shadow-sm"
+              >
+                <div className="aspect-square w-full bg-gray-100" />
+                <div className="space-y-3 p-4">
+                  <div className="h-3 w-24 rounded-full bg-gray-100" />
+                  <div className="h-4 w-3/4 rounded-full bg-gray-100" />
+                  <div className="h-4 w-1/2 rounded-full bg-gray-100" />
+                  <div className="h-9 w-full rounded-full bg-gray-100" />
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : error ? (
+          <div className="rounded-2xl border border-red-100 bg-red-50 px-6 py-5 text-center text-sm text-red-700">
+            <p>Unable to load trending products right now.</p>
+            <button
+              type="button"
+              onClick={() =>
+                dispatch(fetchTrendingProducts({ limit: 8, cache: false }))
+              }
+              className="mt-3 inline-flex items-center justify-center rounded-full border border-red-200 bg-white px-4 py-2 text-xs font-semibold text-red-700 transition hover:border-red-300"
+            >
+              Try again
+            </button>
+          </div>
+        ) : showEmptyState ? (
+          <p className="trending-empty-state">
+            {activeTab === "new-arrivals"
+              ? "No new arrivals from the last 14 days yet."
+              : "No trending products yet. Mark items as trending to show them here."}
+          </p>
+        ) : (
+          <Carousel
+            items={visibleProducts}
+            ariaLabel="Trending products"
+            itemClassName="min-w-[230px] sm:min-w-[260px] md:min-w-[280px] lg:min-w-[300px] xl:min-w-[320px]"
+            renderItem={(product) => (
+              <ProductCard product={product} viewMode="trending" />
+            )}
+          />
+        )}
 
         {/* View All Link */}
         <div className="trending-footer">
@@ -141,7 +158,9 @@ const TrendingProducts = () => {
             }
             className="inline-flex items-center justify-center bg-[#232323] border border-[#232323] text-white px-4 py-2 text-[14px] font-semibold text-black transition hover:bg-[#ffffff] hover:text-black hover:border hover:border-[#232323]"
           >
-            View All Products
+            {activeTab === "new-arrivals" || !trendingAvailable
+              ? "View All Products"
+              : "View Trending Products"}
             <MdChevronRight className="trending-chevron" />
           </Link>
         </div>
