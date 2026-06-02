@@ -34,10 +34,51 @@ export const updateHeroBadges = createAsyncThunk(
   },
 );
 
+export const updateHeroGenderImages = createAsyncThunk(
+  "heroBadges/updateGenderImages",
+  async (genderImages, { getState, rejectWithValue }) => {
+    try {
+      const { auth } = getState();
+      const response = await api.put(
+        "/hero-badges/gender-images",
+        { genderImages },
+        { headers: { Authorization: `Bearer ${auth.accessToken}` } },
+      );
+      return response.data.data;
+    } catch (error) {
+      return rejectWithValue(
+        error.response?.data?.error || "Failed to update gender images",
+      );
+    }
+  },
+);
+
+const normalizeHeroBadgePayload = (payload) => {
+  if (Array.isArray(payload)) {
+    return { images: payload, genderImages: { female: "", male: "" } };
+  }
+
+  const images = Array.isArray(payload?.images) ? payload.images : [];
+  const genderImages = payload?.genderImages || {};
+
+  return {
+    images,
+    genderImages: {
+      female:
+        typeof genderImages.female === "string" ? genderImages.female : "",
+      male: typeof genderImages.male === "string" ? genderImages.male : "",
+    },
+  };
+};
+
 const heroBadgeSlice = createSlice({
   name: "heroBadges",
   initialState: {
     images: [],
+    genderImages: {
+      female: "",
+      male: "",
+    },
     isLoading: false,
     error: null,
   },
@@ -49,7 +90,9 @@ const heroBadgeSlice = createSlice({
         state.error = null;
       })
       .addCase(fetchHeroBadges.fulfilled, (state, action) => {
-        state.images = action.payload;
+        const normalized = normalizeHeroBadgePayload(action.payload);
+        state.images = normalized.images;
+        state.genderImages = normalized.genderImages;
         state.isLoading = false;
       })
       .addCase(fetchHeroBadges.rejected, (state, action) => {
@@ -57,11 +100,19 @@ const heroBadgeSlice = createSlice({
         state.error = action.payload;
       })
       .addCase(updateHeroBadges.fulfilled, (state, action) => {
-        state.images = action.payload;
+        const normalized = normalizeHeroBadgePayload(action.payload);
+        state.images = normalized.images;
+        state.genderImages = normalized.genderImages;
+      })
+      .addCase(updateHeroGenderImages.fulfilled, (state, action) => {
+        const normalized = normalizeHeroBadgePayload(action.payload);
+        state.images = normalized.images;
+        state.genderImages = normalized.genderImages;
       });
   },
 });
 
 export const selectHeroBadges = (state) => state.heroBadges.images;
+export const selectHeroGenderImages = (state) => state.heroBadges.genderImages;
 
 export default heroBadgeSlice.reducer;

@@ -33,7 +33,7 @@ const getInitialViewMode = () => {
   return validModes.includes(saved) ? saved : "grid";
 };
 
-const Products = () => {
+const Products = ({ collectionType = "" }) => {
   const dispatch = useDispatch();
   const location = useLocation();
   const navigate = useNavigate();
@@ -47,6 +47,19 @@ const Products = () => {
   const initialCategory = searchParams.get("category") || "";
   const selectedBannerId = searchParams.get("banner") || "";
   const selectedHeroBannerId = searchParams.get("heroBanner") || "";
+  const collectionFromQuery = (searchParams.get("collection") || "")
+    .trim()
+    .toLowerCase();
+  const collectionFromPath = location.pathname.includes("female-collection")
+    ? "female"
+    : location.pathname.includes("male-collection")
+      ? "male"
+      : "";
+  const normalizedCollection = String(
+    collectionType || collectionFromQuery || collectionFromPath || "",
+  )
+    .trim()
+    .toLowerCase();
   const [currentBanner, setCurrentBanner] = useState(0);
   const [isBannerTransition, setIsBannerTransition] = useState(true);
   const [viewMode, setViewMode] = useState(getInitialViewMode);
@@ -207,7 +220,33 @@ const Products = () => {
         : product.price >= min;
     }
 
-    return matchesCategory && matchesSearch && matchesPrice;
+    const genderText = [
+      product.name,
+      product.category,
+      product.subcategory,
+      product.brand,
+      ...(Array.isArray(product.tags) ? product.tags : []),
+      product.attributes?.size,
+      product.attributes?.material,
+      product.shortDescription,
+    ]
+      .filter(Boolean)
+      .join(" ")
+      .toLowerCase();
+
+    let matchesCollection = true;
+    if (normalizedCollection === "female") {
+      matchesCollection =
+        /\b(female|women|woman|ladies|lady|girl|girls)\b/.test(genderText);
+    } else if (normalizedCollection === "male") {
+      matchesCollection = /\b(male|men|man|boys|boy|gents|gentlemen)\b/.test(
+        genderText,
+      );
+    }
+
+    return (
+      matchesCategory && matchesSearch && matchesPrice && matchesCollection
+    );
   });
 
   const sortedProducts = [...filteredProducts].sort((a, b) => {
@@ -422,6 +461,15 @@ const Products = () => {
             <div className="mb-6 rounded-lg bg-white p-6 shadow-md">
               <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
                 <div>
+                  {normalizedCollection === "female" ? (
+                    <h1 className="text-lg font-bold text-gray-900">
+                      Female Collection
+                    </h1>
+                  ) : normalizedCollection === "male" ? (
+                    <h1 className="text-lg font-bold text-gray-900">
+                      Male Collection
+                    </h1>
+                  ) : null}
                   <p className="text-gray-600 text-[12px]">
                     {sortedProducts.length} products found
                   </p>

@@ -16,6 +16,7 @@ import {
 import {
   fetchHeroBadges,
   selectHeroBadges,
+  selectHeroGenderImages,
 } from "../store/slices/heroBadgeSlice";
 import ProductCard from "../components/ProductCard";
 import TrendingProducts from "../components/TrendingProducts";
@@ -40,6 +41,7 @@ const Home = () => {
   const products = useSelector(selectProducts);
   const heroSlides = useSelector(selectHeroSlides);
   const heroCertificateBadges = useSelector(selectHeroBadges);
+  const heroGenderImages = useSelector(selectHeroGenderImages);
   const [showBannerProducts, setShowBannerProducts] = useState(false);
   const bannerProductsRef = useRef(null);
   const API_URL = import.meta.env.VITE_API_URL || "/api";
@@ -63,6 +65,13 @@ const Home = () => {
     if (url.startsWith("/uploads/")) return `${API_ORIGIN}${url}`;
     return url;
   };
+
+  const femaleCollectionImage =
+    resolveMediaUrl(heroGenderImages?.female) ||
+    "/images/banners/hero_banner1.jpg";
+  const maleCollectionImage =
+    resolveMediaUrl(heroGenderImages?.male) ||
+    "/images/banners/hero_banner1.jpg";
 
   useEffect(() => {
     dispatch(fetchCategories({ force: true }));
@@ -158,6 +167,68 @@ const Home = () => {
           </div>
         </section>
       )}
+
+      <section className="bg-white px-6 py-10">
+        <div className="mx-auto max-w-7xl">
+          <h2 className="text-left text-2xl font-bold text-[#232323]">
+            Shop By Gender
+          </h2>
+
+          <div className="mt-6 grid grid-cols-1 gap-5 md:grid-cols-2">
+            <Link
+              to="/male-collection"
+              className="group relative block overflow-hidden rounded-xl border border-gray-200"
+              aria-label="Open male collection"
+            >
+              <img
+                src={maleCollectionImage}
+                alt="Male collection"
+                className="aspect-square w-full object-cover transition duration-300 group-hover:scale-[1.03]"
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/25 to-transparent" />
+              <div className="absolute bottom-4 left-4 right-4 flex items-end justify-between">
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-[0.18em] text-white/90">
+                    Men
+                  </p>
+                  <h3 className="mt-1 text-2xl font-bold text-white">
+                    Male Collection
+                  </h3>
+                </div>
+                <span className="rounded bg-white/90 px-3 py-1 text-xs font-semibold text-[#232323]">
+                  Explore
+                </span>
+              </div>
+            </Link>
+
+            <Link
+              to="/female-collection"
+              className="group relative block overflow-hidden rounded-xl border border-gray-200"
+              aria-label="Open female collection"
+            >
+              <img
+                src={femaleCollectionImage}
+                alt="Female collection"
+                className="aspect-square w-full object-cover transition duration-300 group-hover:scale-[1.03]"
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/25 to-transparent" />
+              <div className="absolute bottom-4 left-4 right-4 flex items-end justify-between">
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-[0.18em] text-white/90">
+                    Women
+                  </p>
+                  <h3 className="mt-1 text-2xl font-bold text-white">
+                    Female Collection
+                  </h3>
+                </div>
+                <span className="rounded bg-white/90 px-3 py-1 text-xs font-semibold text-[#232323]">
+                  Explore
+                </span>
+              </div>
+            </Link>
+          </div>
+        </div>
+      </section>
 
       {/* Certificates Strip */}
       {heroCertificateBadges.length > 0 && (

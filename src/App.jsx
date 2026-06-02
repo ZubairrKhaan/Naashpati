@@ -44,6 +44,14 @@ function App() {
         <Route path="/" element={<Layout />}>
           <Route index element={<Home />} />
           <Route path="products" element={<Products />} />
+          <Route
+            path="female-collection"
+            element={<Products collectionType="female" />}
+          />
+          <Route
+            path="male-collection"
+            element={<Products collectionType="male" />}
+          />
           <Route path="products/:id" element={<ProductDetail />} />
           <Route path="cart" element={<Cart />} />
           <Route path="checkout" element={<Checkout />} />
