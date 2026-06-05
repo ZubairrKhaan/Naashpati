@@ -159,6 +159,13 @@ const productSchema = new mongoose.Schema(
       required: [true, "Product category is required"],
       trim: true,
     },
+    collection: {
+      type: String,
+      required: [true, "Product collection is required"],
+      enum: ["male", "female", "both"],
+      trim: true,
+      lowercase: true,
+    },
     subcategory: {
       type: String,
       trim: true,

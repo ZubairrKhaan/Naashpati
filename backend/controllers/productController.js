@@ -203,6 +203,29 @@ export const getProducts = async (req, res) => {
       query.category = req.query.category;
     }
 
+    const requestedCollection = String(
+      req.query["gender-category"] || req.query.collection || "",
+    )
+      .trim()
+      .toLowerCase();
+
+    if (requestedCollection) {
+      const normalizedCollection =
+        requestedCollection === "male-collection"
+          ? "male"
+          : requestedCollection === "female-collection"
+          ? "female"
+          : requestedCollection;
+
+      if (normalizedCollection === "male") {
+        query.collection = { $in: ["male", "both"] };
+      } else if (normalizedCollection === "female") {
+        query.collection = { $in: ["female", "both"] };
+      } else if (normalizedCollection === "both") {
+        query.collection = "both";
+      }
+    }
+
     if (req.query.showOnHomeBanner === "true") {
       query.showOnHomeBanner = true;
     }
@@ -327,6 +350,9 @@ export const createProduct = async (req, res) => {
 
     const incomingBody = req.body || {};
 
+    // Debug: log incoming collection value for edit requests
+    console.log('updateProduct - incomingBody.collection =>', incomingBody.collection);
+
     const payload = {
       ...incomingBody,
       sku: normalizeSku(req.body.sku),
@@ -364,6 +390,11 @@ export const createProduct = async (req, res) => {
       seo: normalizeSeo(incomingBody.seo, incomingBody.seoKeywords),
     };
 
+    // normalize collection (required)
+    if (hasOwn(incomingBody, "collection")) {
+      payload.collection = String(incomingBody.collection || "").trim().toLowerCase();
+    }
+
     if (!hasOwn(incomingBody, "isActive")) {
       payload.isActive = payload.status === "published";
     }
@@ -373,6 +404,9 @@ export const createProduct = async (req, res) => {
     );
 
     const normalizedPayload = payload;
+
+    // Debug: log normalized payload collection before update
+    console.log('updateProduct - normalizedPayload.collection =>', normalizedPayload.collection);
 
     if (await isSkuDuplicate(normalizedPayload.sku)) {
       return res.status(409).json({
@@ -614,6 +648,10 @@ export const updateProduct = async (req, res) => {
       payload.attributes = normalizeAttributes(incomingBody.attributes);
     }
 
+    if (hasOwn(incomingBody, "collection")) {
+      payload.collection = String(incomingBody.collection || "").trim().toLowerCase();
+    }
+
     if (hasOwn(incomingBody, "shipping")) {
       payload.shipping = normalizeShipping(incomingBody.shipping);
     }
@@ -717,6 +755,25 @@ export const updateProduct = async (req, res) => {
           runValidators: true,
         },
       );
+    }
+
+    // Debug: log updated product collection after DB update
+    console.log('updateProduct - updatedProduct.collection =>', updatedProduct?.collection);
+
+    // If collection was provided in the incoming payload, enforce it on the
+    // returned document and save so schema setters (eg. lowercase) run and
+    // the value is guaranteed persisted.
+    if (hasOwn(normalizedPayload, "collection") && updatedProduct) {
+      try {
+        const desired = String(normalizedPayload.collection || "").trim().toLowerCase();
+        if (updatedProduct.collection !== desired) {
+          updatedProduct.collection = desired;
+          await updatedProduct.save();
+          console.log('updateProduct - enforced saved collection =>', updatedProduct.collection);
+        }
+      } catch (saveErr) {
+        console.error("Error enforcing collection save:", saveErr);
+      }
     }
 
     const stockMap = await getStockTotalsByProductIds([updatedProduct._id]);

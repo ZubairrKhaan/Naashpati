@@ -45,6 +45,14 @@ export const fetchProducts = createAsyncThunk(
         sort: pick("sort", productState.filters.sort),
       };
 
+      if (params.collection) {
+        queryParams.collection = params.collection;
+      }
+
+      if (params["gender-category"]) {
+        queryParams["gender-category"] = params["gender-category"];
+      }
+
       if (params.includeDraft !== undefined) {
         queryParams.includeDraft = String(Boolean(params.includeDraft));
       }

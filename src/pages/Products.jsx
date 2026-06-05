@@ -47,19 +47,23 @@ const Products = ({ collectionType = "" }) => {
   const initialCategory = searchParams.get("category") || "";
   const selectedBannerId = searchParams.get("banner") || "";
   const selectedHeroBannerId = searchParams.get("heroBanner") || "";
-  const collectionFromQuery = (searchParams.get("collection") || "")
-    .trim()
-    .toLowerCase();
-  const collectionFromPath = location.pathname.includes("female-collection")
-    ? "female"
-    : location.pathname.includes("male-collection")
-      ? "male"
-      : "";
-  const normalizedCollection = String(
-    collectionType || collectionFromQuery || collectionFromPath || "",
+  const rawGenderCategory = String(
+    searchParams.get("gender-category") || searchParams.get("collection") || "",
   )
     .trim()
     .toLowerCase();
+  const normalizedCollection = (() => {
+    const candidate = String(collectionType || rawGenderCategory || "")
+      .trim()
+      .toLowerCase();
+    if (candidate === "male-collection" || candidate === "male") {
+      return "male";
+    }
+    if (candidate === "female-collection" || candidate === "female") {
+      return "female";
+    }
+    return "";
+  })();
   const [currentBanner, setCurrentBanner] = useState(0);
   const [isBannerTransition, setIsBannerTransition] = useState(true);
   const [viewMode, setViewMode] = useState(getInitialViewMode);
@@ -73,12 +77,35 @@ const Products = ({ collectionType = "" }) => {
     sortBy: "name",
   });
 
+  const GENDER_CATEGORY_VALUES = new Set(["male-collection", "female-collection"]);
+  const genderCategories = categories.filter((category) =>
+    GENDER_CATEGORY_VALUES.has(String(category.value || "").toLowerCase()),
+  );
+  const regularCategories = categories.filter(
+    (category) =>
+      !GENDER_CATEGORY_VALUES.has(String(category.value || "").toLowerCase()),
+  );
+
+  const isGenderRoute = normalizedCollection === "male" || normalizedCollection === "female";
+
   useEffect(() => {
-    dispatch(fetchProducts());
+    const fetchParams = {};
+
+    if (rawGenderCategory) {
+      fetchParams["gender-category"] = rawGenderCategory;
+    } else if (collectionType) {
+      fetchParams["gender-category"] = `${collectionType}-collection`;
+    }
+
+    if (initialCategory) {
+      fetchParams.category = initialCategory;
+    }
+
+    dispatch(fetchProducts(fetchParams));
     dispatch(fetchCategories());
     dispatch(fetchProductBanners());
     dispatch(fetchHeroSlides());
-  }, [dispatch]);
+  }, [dispatch, rawGenderCategory, collectionType, initialCategory]);
 
   const bannerSlides = useMemo(() => {
     if (productBanners.length > 0) {
@@ -235,13 +262,16 @@ const Products = ({ collectionType = "" }) => {
       .toLowerCase();
 
     let matchesCollection = true;
-    if (normalizedCollection === "female") {
-      matchesCollection =
-        /\b(female|women|woman|ladies|lady|girl|girls)\b/.test(genderText);
-    } else if (normalizedCollection === "male") {
-      matchesCollection = /\b(male|men|man|boys|boy|gents|gentlemen)\b/.test(
-        genderText,
-      );
+    if (normalizedCollection) {
+      if (product.collection) {
+        const collectionValue = String(product.collection || "").trim().toLowerCase();
+        matchesCollection =
+          collectionValue === normalizedCollection || collectionValue === "both";
+      } else if (normalizedCollection === "female") {
+        matchesCollection = /\b(female|women|woman|ladies|lady|girl|girls)\b/.test(genderText);
+      } else if (normalizedCollection === "male") {
+        matchesCollection = /\b(male|men|man|boys|boy|gents|gentlemen)\b/.test(genderText);
+      }
     }
 
     return (
@@ -265,6 +295,17 @@ const Products = ({ collectionType = "" }) => {
   });
 
   const handleFilterChange = (key, value) => {
+    if (key === "category") {
+      let target = "/products";
+      if (value === "male-collection" || value === "female-collection") {
+        target = `/products?gender-category=${encodeURIComponent(value)}`;
+        value = "";
+      } else if (value) {
+        target = `/products?category=${encodeURIComponent(value)}`;
+      }
+      navigate(target, { replace: false });
+    }
+
     setFilters((prev) => ({ ...prev, [key]: value }));
   };
 
@@ -396,14 +437,16 @@ const Products = ({ collectionType = "" }) => {
                   type="button"
                   onClick={() => handleFilterChange("category", "")}
                   className={`group flex w-full items-center gap-3 border-0 py-2 text-left text-[12px] outline-none ring-0 transition hover:border-0 hover:outline-none hover:ring-0 focus:outline-none focus:ring-0 ${
-                    !filters.category
+                    !filters.category && !normalizedCollection
                       ? "font-medium text-[#68a300]"
                       : "text-gray-900 hover:text-[#68a300]"
                   }`}
                 >
                   <span
                     className={`text-[10px] ${
-                      !filters.category ? "text-gray-500" : "text-transparent"
+                      !filters.category && !normalizedCollection
+                        ? "text-gray-500"
+                        : "text-transparent"
                     }`}
                     aria-hidden="true"
                   >
@@ -419,7 +462,45 @@ const Products = ({ collectionType = "" }) => {
                     All products
                   </span>
                 </button>
-                {categories.map((category) => (
+                {genderCategories.map((category) => {
+                  const isActiveGender =
+                    normalizedCollection &&
+                    category.value === `${normalizedCollection}-collection`;
+
+                  return (
+                    <button
+                      key={category._id || category.value}
+                      type="button"
+                      onClick={() =>
+                        handleFilterChange("category", category.value)
+                      }
+                      className={`group flex w-full items-center gap-3 border-0 py-2 text-left text-[12px] outline-none ring-0 transition hover:border-0 hover:outline-none hover:ring-0 focus:outline-none focus:ring-0 ${
+                        isActiveGender
+                          ? "font-medium text-[#68a300]"
+                          : "text-gray-900 hover:text-[#68a300]"
+                      }`}
+                    >
+                      <span
+                        className={`text-[10px] ${
+                          isActiveGender ? "text-gray-500" : "text-transparent"
+                        }`}
+                        aria-hidden="true"
+                      >
+                        <FaChevronRight />
+                      </span>
+                      <span
+                        className={`relative inline-block after:absolute after:bottom-[-2px] after:left-0 after:h-px after:bg-current after:transition-all after:duration-300 ${
+                          isActiveGender
+                            ? "after:w-full"
+                            : "after:w-0 group-hover:after:w-full"
+                        }`}
+                      >
+                        {category.name}
+                      </span>
+                    </button>
+                  );
+                })}
+                {regularCategories.map((category) => (
                   <button
                     key={category._id || category.value}
                     type="button"

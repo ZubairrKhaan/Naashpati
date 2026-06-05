@@ -1,5 +1,5 @@
 import { useEffect, lazy, Suspense } from "react";
-import { Routes, Route } from "react-router-dom";
+import { Routes, Route, Navigate } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import { getCurrentUser, setAuthChecked } from "./store/slices/authSlice";
 import Layout from "./components/Layout";
@@ -46,11 +46,15 @@ function App() {
           <Route path="products" element={<Products />} />
           <Route
             path="female-collection"
-            element={<Products collectionType="female" />}
+            element={
+              <Navigate to="/products?gender-category=female-collection" replace />
+            }
           />
           <Route
             path="male-collection"
-            element={<Products collectionType="male" />}
+            element={
+              <Navigate to="/products?gender-category=male-collection" replace />
+            }
           />
           <Route path="products/:id" element={<ProductDetail />} />
           <Route path="cart" element={<Cart />} />

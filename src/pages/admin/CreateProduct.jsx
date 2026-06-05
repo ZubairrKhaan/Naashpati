@@ -57,6 +57,7 @@ const CreateProduct = ({ onClose, onSuccess, initialCategory = "" }) => {
     originalPrice: "",
     costPrice: "",
     category: "",
+    collection: "male",
     sku: "",
     barcode: "",
     stock: "0",
@@ -145,6 +146,12 @@ const CreateProduct = ({ onClose, onSuccess, initialCategory = "" }) => {
     });
   }, [categories, dispatch, isAuthenticated, user]);
 
+  const availableCategories = categories.filter(
+    (category) =>
+      category.value !== "male-collection" &&
+      category.value !== "female-collection",
+  );
+
   useEffect(() => {
     if (initialCategory) {
       setFormData((prev) =>
@@ -155,17 +162,25 @@ const CreateProduct = ({ onClose, onSuccess, initialCategory = "" }) => {
       return;
     }
 
-    if (categories.length > 0 && !formData.category) {
-      setFormData((prev) => ({ ...prev, category: categories[0].value }));
+    if (availableCategories.length > 0 && !formData.category) {
+      setFormData((prev) => ({ ...prev, category: availableCategories[0].value }));
     }
-  }, [initialCategory, categories, formData.category]);
+  }, [initialCategory, availableCategories, formData.category]);
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
-    setFormData((prev) => ({
-      ...prev,
-      [name]: type === "checkbox" ? checked : value,
-    }));
+    setFormData((prev) => {
+      const next = { ...prev, [name]: type === "checkbox" ? checked : value };
+      // If category changed and it's a known male/female category, default collection
+      if (name === "category") {
+        if (value === "male-collection") {
+          next.collection = "male";
+        } else if (value === "female-collection") {
+          next.collection = "female";
+        }
+      }
+      return next;
+    });
   };
 
   const handleAttributeChange = (key, value) => {
@@ -373,6 +388,11 @@ const CreateProduct = ({ onClose, onSuccess, initialCategory = "" }) => {
       return;
     }
 
+    if (!formData.collection) {
+      toast.error("Please select a gender category for the product.");
+      return;
+    }
+
     const normalizedSku = (sku || "").trim().toUpperCase();
     if (!/^[A-Z0-9_-]{3,64}$/.test(normalizedSku)) {
       toast.error(
@@ -409,6 +429,7 @@ const CreateProduct = ({ onClose, onSuccess, initialCategory = "" }) => {
         originalPrice: Number(originalPriceNum),
         costPrice: Number(costPrice),
         category,
+        collection: formData.collection,
         sku: normalizedSku,
         barcode: (barcode || "").trim(),
         stock: Number(stock),
@@ -557,11 +578,32 @@ const CreateProduct = ({ onClose, onSuccess, initialCategory = "" }) => {
               className="mt-1 block w-full rounded-md border-gray-300 bg-white shadow-sm focus:border-green-500 focus:ring-green-500 sm:text-sm"
               required
             >
-              {categories.map((option) => (
+              {availableCategories.map((option) => (
                 <option key={option._id || option.value} value={option.value}>
                   {option.name}
                 </option>
               ))}
+            </select>
+          </div>
+
+          <div>
+            <label
+              htmlFor="collection"
+              className="block text-sm font-medium text-gray-700"
+            >
+              Gender Category
+            </label>
+            <select
+              id="collection"
+              name="collection"
+              value={formData.collection}
+              onChange={handleChange}
+              className="mt-1 block w-full rounded-md border-gray-300 bg-white shadow-sm focus:border-green-500 focus:ring-green-500 sm:text-sm"
+              required
+            >
+              <option value="male">Male</option>
+              <option value="female">Female</option>
+              <option value="both">Both</option>
             </select>
           </div>
 

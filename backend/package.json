@@ -9,6 +9,7 @@
     "dev": "nodemon server.js",
     "seed": "node seeder.js",
     "migrate:product-metrics": "node migrations/002_create_product_metrics_collection.js",
+    "migrate:product-collections": "node migrations/003_populate_product_collections.js",
     "build": "echo 'No build step required'",
     "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js"
   },

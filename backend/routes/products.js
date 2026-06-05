@@ -131,6 +131,12 @@ const createProductValidation = [
     }
     return true;
   }),
+  body("collection")
+    .exists({ checkFalsy: true })
+    .withMessage("Collection is required")
+    .trim()
+    .isIn(["male", "female", "both"])
+    .withMessage('Collection must be one of "male", "female", or "both"'),
   body("faqContent")
     .optional()
     .trim()
@@ -319,6 +325,11 @@ const updateProductValidation = [
       }
       return true;
     }),
+  body("collection")
+    .optional()
+    .trim()
+    .isIn(["male", "female", "both"])
+    .withMessage('Collection must be one of "male", "female", or "both"'),
   body("stock")
     .optional()
     .isInt({ min: 0 })

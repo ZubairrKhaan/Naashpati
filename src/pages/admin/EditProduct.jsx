@@ -113,6 +113,7 @@ const EditProduct = ({ onClose, onSuccess, product: productProp }) => {
     },
     isActive: true,
     showOnHomeBanner: false,
+    collection: "male",
   });
   const [imagePreview, setImagePreview] = useState(null);
   const [uploading, setUploading] = useState(false);
@@ -261,6 +262,7 @@ const EditProduct = ({ onClose, onSuccess, product: productProp }) => {
             ? product.seo.seoKeywords.join(", ")
             : "",
         },
+        collection: product.collection || "male",
         isActive: product.isActive ?? true,
         showOnHomeBanner: product.showOnHomeBanner ?? false,
       });
@@ -485,10 +487,17 @@ const EditProduct = ({ onClose, onSuccess, product: productProp }) => {
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
-    setFormData((prev) => ({
-      ...prev,
-      [name]: type === "checkbox" ? checked : value,
-    }));
+    setFormData((prev) => {
+      const next = { ...prev, [name]: type === "checkbox" ? checked : value };
+      if (name === "category") {
+        if (value === "male-collection") {
+          next.collection = "male";
+        } else if (value === "female-collection") {
+          next.collection = "female";
+        }
+      }
+      return next;
+    });
   };
 
   const handleNestedChange = (section, key, value) => {
@@ -588,6 +597,7 @@ const EditProduct = ({ onClose, onSuccess, product: productProp }) => {
       price,
       costPrice,
       category,
+      collection,
       sku,
       barcode,
       stock,
@@ -614,6 +624,11 @@ const EditProduct = ({ onClose, onSuccess, product: productProp }) => {
       stock === ""
     ) {
       toast.error("Please fill in all required fields.");
+      return;
+    }
+
+    if (!collection) {
+      toast.error("Please select a gender category for the product.");
       return;
     }
 
@@ -730,6 +745,7 @@ const EditProduct = ({ onClose, onSuccess, product: productProp }) => {
         originalPrice: Number(originalPriceNum),
         costPrice: Number(costPrice),
         category,
+        collection,
         sku: normalizedSku,
         barcode: String(barcode || "").trim(),
         stock: Number(stock),
@@ -882,11 +898,38 @@ const EditProduct = ({ onClose, onSuccess, product: productProp }) => {
                 className="mt-1 block w-full rounded-md border-gray-300 bg-white shadow-sm focus:border-green-500 focus:ring-green-500 sm:text-sm"
                 required
               >
-                {categories.map((option) => (
-                  <option key={option._id || option.value} value={option.value}>
-                    {option.name}
-                  </option>
-                ))}
+                {categories
+                  .filter(
+                    (option) =>
+                      option.value !== "male-collection" &&
+                      option.value !== "female-collection",
+                  )
+                  .map((option) => (
+                    <option key={option._id || option.value} value={option.value}>
+                      {option.name}
+                    </option>
+                  ))}
+              </select>
+            </div>
+
+            <div>
+              <label
+                htmlFor="collection"
+                className="block text-sm font-medium text-gray-700"
+              >
+                Gender Category
+              </label>
+              <select
+                id="collection"
+                name="collection"
+                value={formData.collection}
+                onChange={handleChange}
+                className="mt-1 block w-full rounded-md border-gray-300 bg-white shadow-sm focus:border-green-500 focus:ring-green-500 sm:text-sm"
+                required
+              >
+                <option value="male">Male</option>
+                <option value="female">Female</option>
+                <option value="both">Both</option>
               </select>
             </div>
 

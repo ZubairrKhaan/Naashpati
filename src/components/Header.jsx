@@ -106,8 +106,8 @@ const Header = () => {
     const existingValues = new Set(
       categories.map((category) => String(category.value || "").toLowerCase()),
     );
-    const missingDefaults = DEFAULT_CATEGORIES.filter((category) =>
-      !existingValues.has(slugifyCategory(category.name)),
+    const missingDefaults = DEFAULT_CATEGORIES.filter(
+      (category) => !existingValues.has(slugifyCategory(category.name)),
     );
 
     if (missingDefaults.length === 0) {
@@ -150,39 +150,39 @@ const Header = () => {
     navigate("/products", { replace: true, state: { search: value } });
   };
 
+  const excludedCategoryValues = new Set(
+    DEFAULT_CATEGORIES.map((category) => slugifyCategory(category.name)),
+  );
+
   const categoryLinks = useMemo(() => {
-    const defaults = DEFAULT_CATEGORIES.map((category) => ({
-      value: slugifyCategory(category.name),
-      label: category.name,
-    }));
-
-    const resolvedDefaults = defaults.map((entry) => {
-      const matched = categories.find(
-        (category) =>
-          String(category.value || "").toLowerCase() === entry.value,
-      );
-      return {
-        value: entry.value,
-        label: matched?.name || entry.label,
-      };
-    });
-
-    const defaultValues = new Set(resolvedDefaults.map((entry) => entry.value));
-    const extras = categories
+    return categories
       .map((category) => ({
         value: String(category.value || "").toLowerCase(),
         label: category.name,
       }))
-      .filter((entry) => entry.value && !defaultValues.has(entry.value));
-
-    return [...resolvedDefaults, ...extras].map((entry) => ({
-      to: `/products?category=${encodeURIComponent(entry.value)}`,
-      label: entry.label,
-    }));
+      .filter(
+        (entry) => entry.value && !excludedCategoryValues.has(entry.value),
+      )
+      .map((entry) => ({
+        to: `/products?category=${encodeURIComponent(entry.value)}`,
+        label: entry.label,
+      }));
   }, [categories]);
+
+  const genderLinks = [
+    {
+      to: "/products?gender-category=male-collection",
+      label: "Male Collection",
+    },
+    {
+      to: "/products?gender-category=female-collection",
+      label: "Female Collection",
+    },
+  ];
 
   const navLinks = [
     { to: "/", label: "Home" },
+    ...genderLinks,
     ...categoryLinks,
     { to: "/about", label: "About Us" },
     { to: "/contact", label: "Contact" },
@@ -190,16 +190,30 @@ const Header = () => {
   ];
 
   const isNavActive = (to) => {
-    if (to.startsWith("/products?category=")) {
+    if (to.startsWith("/products?")) {
       if (location.pathname !== "/products") {
         return false;
       }
-      const params = new URLSearchParams(location.search);
-      const activeCategory = (params.get("category") || "").toLowerCase();
-      const targetCategory = decodeURIComponent(to.split("category=")[1] || "")
-        .trim()
-        .toLowerCase();
-      return Boolean(activeCategory && activeCategory === targetCategory);
+
+      const locationParams = new URLSearchParams(location.search);
+      const targetParams = new URLSearchParams(to.split("?")[1] || "");
+
+      if (targetParams.has("category")) {
+        const activeCategory = (locationParams.get("category") || "").toLowerCase();
+        const targetCategory = (targetParams.get("category") || "").toLowerCase();
+        return Boolean(activeCategory && activeCategory === targetCategory);
+      }
+
+      if (targetParams.has("gender-category")) {
+        const activeGender = (
+          locationParams.get("gender-category") ||
+          locationParams.get("collection") ||
+          ""
+        )
+          .toLowerCase();
+        const targetGender = (targetParams.get("gender-category") || "").toLowerCase();
+        return Boolean(activeGender && activeGender === targetGender);
+      }
     }
 
     return location.pathname === to;

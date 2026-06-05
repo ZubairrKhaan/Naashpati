@@ -176,7 +176,7 @@ const Home = () => {
 
           <div className="mt-6 grid grid-cols-1 gap-5 md:grid-cols-2">
             <Link
-              to="/male-collection"
+              to="/products?gender-category=male-collection"
               className="group relative block overflow-hidden rounded-xl border border-gray-200"
               aria-label="Open male collection"
             >
@@ -202,7 +202,7 @@ const Home = () => {
             </Link>
 
             <Link
-              to="/female-collection"
+              to="/products?gender-category=female-collection"
               className="group relative block overflow-hidden rounded-xl border border-gray-200"
               aria-label="Open female collection"
             >
@@ -257,32 +257,34 @@ const Home = () => {
                 const value = String(category.value || "")
                   .trim()
                   .toLowerCase();
-                return value !== "male-collection" && value !== "female-collection";
+                return (
+                  value !== "male-collection" && value !== "female-collection"
+                );
               })
               .map((category) => (
-              <Link
-                key={category.value}
-                to={`/products?category=${category.value}`}
-                className="group min-w-[220px] shrink-0"
-              >
-                <div className="relative aspect-[4/3] overflow-hidden rounded-2xl bg-gray-100">
-                  {category.image ? (
-                    <img
-                      src={resolveMediaUrl(category.image)}
-                      alt={category.name}
-                      loading="lazy"
-                      className="h-[224px] w-[224px] object-cover transition duration-300 group-hover:scale-[1.03]"
-                    />
-                  ) : (
-                    <div className="flex h-full w-full items-center justify-center">
-                      <FaSeedling className="text-4xl text-[#68a300]" />
-                    </div>
-                  )}
-                </div>
-                <p className="mt-3 text-center text-sm font-medium text-gray-700">
-                  {category.name}
-                </p>
-              </Link>
+                <Link
+                  key={category.value}
+                  to={`/products?category=${category.value}`}
+                  className="group min-w-[220px] shrink-0"
+                >
+                  <div className="relative aspect-[4/3] overflow-hidden rounded-2xl bg-gray-100">
+                    {category.image ? (
+                      <img
+                        src={resolveMediaUrl(category.image)}
+                        alt={category.name}
+                        loading="lazy"
+                        className="h-[224px] w-[224px] object-cover transition duration-300 group-hover:scale-[1.03]"
+                      />
+                    ) : (
+                      <div className="flex h-full w-full items-center justify-center">
+                        <FaSeedling className="text-4xl text-[#68a300]" />
+                      </div>
+                    )}
+                  </div>
+                  <p className="mt-3 text-center text-sm font-medium text-gray-700">
+                    {category.name}
+                  </p>
+                </Link>
               ))}
           </div>
 
