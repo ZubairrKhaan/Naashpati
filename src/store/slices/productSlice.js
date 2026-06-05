@@ -97,7 +97,7 @@ export const fetchCategories = createAsyncThunk(
   "products/fetchCategories",
   async (_, { rejectWithValue }) => {
     try {
-      const response = await api.get(`/categories`);
+      const response = await api.get(`/products/categories`);
       return response.data.data;
     } catch (error) {
       return rejectWithValue(
@@ -132,7 +132,7 @@ export const createCategory = createAsyncThunk(
   async (categoryData, { getState, rejectWithValue }) => {
     try {
       const { auth } = getState();
-      const response = await api.post(`/categories`, categoryData, {
+      const response = await api.post(`/products/categories`, categoryData, {
         headers: {
           Authorization: `Bearer ${auth.accessToken}`,
         },
@@ -151,7 +151,7 @@ export const deleteCategory = createAsyncThunk(
   async (id, { getState, rejectWithValue }) => {
     try {
       const { auth } = getState();
-      await api.delete(`/categories/${id}`, {
+      await api.delete(`/products/categories/${id}`, {
         headers: {
           Authorization: `Bearer ${auth.accessToken}`,
         },
@@ -170,7 +170,7 @@ export const updateCategory = createAsyncThunk(
   async ({ id, data }, { getState, rejectWithValue }) => {
     try {
       const { auth } = getState();
-      const response = await api.put(`/categories/${id}`, data, {
+      const response = await api.put(`/products/categories/${id}`, data, {
         headers: {
           Authorization: `Bearer ${auth.accessToken}`,
         },
