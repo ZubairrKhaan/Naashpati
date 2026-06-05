@@ -57,9 +57,9 @@ const run = async () => {
 
   const missingCollectionQuery = {
     $or: [
-      { collection: { $exists: false } },
-      { collection: null },
-      { collection: "" },
+      { productCollection: { $exists: false } },
+      { productCollection: null },
+      { productCollection: "" },
     ],
   };
 
@@ -68,9 +68,16 @@ const run = async () => {
 
   while (await cursor.hasNext()) {
     const product = await cursor.next();
-    const collection = determineCollection(product);
+    const collection = product.productCollection
+      ? String(product.productCollection).trim().toLowerCase()
+      : product.collection
+      ? String(product.collection).trim().toLowerCase()
+      : determineCollection(product);
 
-    await products.updateOne({ _id: product._id }, { $set: { collection } });
+    await products.updateOne(
+      { _id: product._id },
+      { $set: { productCollection: collection } },
+    );
 
     updatedCount += 1;
   }

@@ -435,7 +435,7 @@ const CreateProduct = ({ onClose, onSuccess, initialCategory = "" }) => {
         originalPrice: Number(originalPriceNum),
         costPrice: Number(costPrice),
         category,
-        collection: formData.collection,
+        productCollection: formData.collection,
         sku: normalizedSku,
         barcode: (barcode || "").trim(),
         stock: Number(stock),

@@ -159,7 +159,7 @@ const productSchema = new mongoose.Schema(
       required: [true, "Product category is required"],
       trim: true,
     },
-    collection: {
+    productCollection: {
       type: String,
       required: [true, "Product collection is required"],
       enum: ["male", "female", "both"],

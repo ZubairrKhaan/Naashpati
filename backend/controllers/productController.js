@@ -218,11 +218,20 @@ export const getProducts = async (req, res) => {
             : requestedCollection;
 
       if (normalizedCollection === "male") {
-        query.collection = { $in: ["male", "both"] };
+        query.$or = [
+          { productCollection: { $in: ["male", "both"] } },
+          { collection: { $in: ["male", "both"] } },
+        ];
       } else if (normalizedCollection === "female") {
-        query.collection = { $in: ["female", "both"] };
+        query.$or = [
+          { productCollection: { $in: ["female", "both"] } },
+          { collection: { $in: ["female", "both"] } },
+        ];
       } else if (normalizedCollection === "both") {
-        query.collection = "both";
+        query.$or = [
+          { productCollection: "both" },
+          { collection: "both" },
+        ];
       }
     }
 
@@ -350,10 +359,10 @@ export const createProduct = async (req, res) => {
 
     const incomingBody = req.body || {};
 
-    // Debug: log incoming collection value for edit requests
+    // Debug: log incoming collection value for create requests
     console.log(
-      "updateProduct - incomingBody.collection =>",
-      incomingBody.collection,
+      "createProduct - incomingBody.productCollection =>",
+      incomingBody.productCollection || incomingBody.collection,
     );
 
     const payload = {
@@ -393,11 +402,14 @@ export const createProduct = async (req, res) => {
       seo: normalizeSeo(incomingBody.seo, incomingBody.seoKeywords),
     };
 
-    // normalize collection (required)
-    if (hasOwn(incomingBody, "collection")) {
-      payload.collection = String(incomingBody.collection || "")
-        .trim()
-        .toLowerCase();
+    const normalizedProductCollection = hasOwn(incomingBody, "productCollection")
+      ? String(incomingBody.productCollection || "").trim().toLowerCase()
+      : hasOwn(incomingBody, "collection")
+      ? String(incomingBody.collection || "").trim().toLowerCase()
+      : undefined;
+
+    if (normalizedProductCollection) {
+      payload.productCollection = normalizedProductCollection;
     }
 
     if (!hasOwn(incomingBody, "isActive")) {
@@ -410,10 +422,10 @@ export const createProduct = async (req, res) => {
 
     const normalizedPayload = payload;
 
-    // Debug: log normalized payload collection before update
+    // Debug: log normalized payload productCollection before create
     console.log(
-      "updateProduct - normalizedPayload.collection =>",
-      normalizedPayload.collection,
+      "createProduct - normalizedPayload.productCollection =>",
+      normalizedPayload.productCollection,
     );
 
     if (await isSkuDuplicate(normalizedPayload.sku)) {
@@ -656,10 +668,14 @@ export const updateProduct = async (req, res) => {
       payload.attributes = normalizeAttributes(incomingBody.attributes);
     }
 
-    if (hasOwn(incomingBody, "collection")) {
-      payload.collection = String(incomingBody.collection || "")
-        .trim()
-        .toLowerCase();
+    const normalizedProductCollection = hasOwn(incomingBody, "productCollection")
+      ? String(incomingBody.productCollection || "").trim().toLowerCase()
+      : hasOwn(incomingBody, "collection")
+      ? String(incomingBody.collection || "").trim().toLowerCase()
+      : undefined;
+
+    if (normalizedProductCollection) {
+      payload.productCollection = normalizedProductCollection;
     }
 
     if (hasOwn(incomingBody, "shipping")) {
@@ -769,28 +785,28 @@ export const updateProduct = async (req, res) => {
 
     // Debug: log updated product collection after DB update
     console.log(
-      "updateProduct - updatedProduct.collection =>",
-      updatedProduct?.collection,
+      "updateProduct - updatedProduct.productCollection =>",
+      updatedProduct?.productCollection,
     );
 
-    // If collection was provided in the incoming payload, enforce it on the
+    // If productCollection was provided in the incoming payload, enforce it on the
     // returned document and save so schema setters (eg. lowercase) run and
     // the value is guaranteed persisted.
-    if (hasOwn(normalizedPayload, "collection") && updatedProduct) {
+    if (hasOwn(normalizedPayload, "productCollection") && updatedProduct) {
       try {
-        const desired = String(normalizedPayload.collection || "")
+        const desired = String(normalizedPayload.productCollection || "")
           .trim()
           .toLowerCase();
-        if (updatedProduct.collection !== desired) {
-          updatedProduct.collection = desired;
+        if (updatedProduct.productCollection !== desired) {
+          updatedProduct.productCollection = desired;
           await updatedProduct.save();
           console.log(
-            "updateProduct - enforced saved collection =>",
-            updatedProduct.collection,
+            "updateProduct - enforced saved productCollection =>",
+            updatedProduct.productCollection,
           );
         }
       } catch (saveErr) {
-        console.error("Error enforcing collection save:", saveErr);
+        console.error("Error enforcing productCollection save:", saveErr);
       }
     }
 

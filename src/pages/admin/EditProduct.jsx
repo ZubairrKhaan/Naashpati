@@ -262,7 +262,7 @@ const EditProduct = ({ onClose, onSuccess, product: productProp }) => {
             ? product.seo.seoKeywords.join(", ")
             : "",
         },
-        collection: product.collection || "male",
+        collection: product.productCollection || "male",
         isActive: product.isActive ?? true,
         showOnHomeBanner: product.showOnHomeBanner ?? false,
       });
@@ -745,7 +745,7 @@ const EditProduct = ({ onClose, onSuccess, product: productProp }) => {
         originalPrice: Number(originalPriceNum),
         costPrice: Number(costPrice),
         category,
-        collection,
+        productCollection: collection,
         sku: normalizedSku,
         barcode: String(barcode || "").trim(),
         stock: Number(stock),

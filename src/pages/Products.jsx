@@ -267,8 +267,8 @@ const Products = ({ collectionType = "" }) => {
 
     let matchesCollection = true;
     if (normalizedCollection) {
-      if (product.collection) {
-        const collectionValue = String(product.collection || "")
+      if (product.productCollection) {
+        const collectionValue = String(product.productCollection || "")
           .trim()
           .toLowerCase();
         matchesCollection =
