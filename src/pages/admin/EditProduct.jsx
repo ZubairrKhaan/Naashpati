@@ -162,8 +162,8 @@ const EditProduct = ({ onClose, onSuccess, product: productProp }) => {
     const existingValues = new Set(
       categories.map((category) => String(category.value || "").toLowerCase()),
     );
-    const missingDefaults = DEFAULT_CATEGORIES.filter((category) =>
-      !existingValues.has(slugifyCategory(category.name)),
+    const missingDefaults = DEFAULT_CATEGORIES.filter(
+      (category) => !existingValues.has(slugifyCategory(category.name)),
     );
 
     if (missingDefaults.length === 0) {
@@ -905,7 +905,10 @@ const EditProduct = ({ onClose, onSuccess, product: productProp }) => {
                       option.value !== "female-collection",
                   )
                   .map((option) => (
-                    <option key={option._id || option.value} value={option.value}>
+                    <option
+                      key={option._id || option.value}
+                      value={option.value}
+                    >
                       {option.name}
                     </option>
                   ))}

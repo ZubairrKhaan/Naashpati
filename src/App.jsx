@@ -47,13 +47,19 @@ function App() {
           <Route
             path="female-collection"
             element={
-              <Navigate to="/products?gender-category=female-collection" replace />
+              <Navigate
+                to="/products?gender-category=female-collection"
+                replace
+              />
             }
           />
           <Route
             path="male-collection"
             element={
-              <Navigate to="/products?gender-category=male-collection" replace />
+              <Navigate
+                to="/products?gender-category=male-collection"
+                replace
+              />
             }
           />
           <Route path="products/:id" element={<ProductDetail />} />

@@ -131,7 +131,10 @@ const CreateProduct = ({ onClose, onSuccess, initialCategory = "" }) => {
     );
 
     const missingDefaults = DEFAULT_CATEGORIES.filter((category) => {
-      const value = category.name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+      const value = category.name
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/^-+|-+$/g, "");
       return !existingValues.has(value);
     });
 
@@ -163,7 +166,10 @@ const CreateProduct = ({ onClose, onSuccess, initialCategory = "" }) => {
     }
 
     if (availableCategories.length > 0 && !formData.category) {
-      setFormData((prev) => ({ ...prev, category: availableCategories[0].value }));
+      setFormData((prev) => ({
+        ...prev,
+        category: availableCategories[0].value,
+      }));
     }
   }, [initialCategory, availableCategories, formData.category]);
 

@@ -77,7 +77,10 @@ const Products = ({ collectionType = "" }) => {
     sortBy: "name",
   });
 
-  const GENDER_CATEGORY_VALUES = new Set(["male-collection", "female-collection"]);
+  const GENDER_CATEGORY_VALUES = new Set([
+    "male-collection",
+    "female-collection",
+  ]);
   const genderCategories = categories.filter((category) =>
     GENDER_CATEGORY_VALUES.has(String(category.value || "").toLowerCase()),
   );
@@ -86,7 +89,8 @@ const Products = ({ collectionType = "" }) => {
       !GENDER_CATEGORY_VALUES.has(String(category.value || "").toLowerCase()),
   );
 
-  const isGenderRoute = normalizedCollection === "male" || normalizedCollection === "female";
+  const isGenderRoute =
+    normalizedCollection === "male" || normalizedCollection === "female";
 
   useEffect(() => {
     const fetchParams = {};
@@ -264,13 +268,19 @@ const Products = ({ collectionType = "" }) => {
     let matchesCollection = true;
     if (normalizedCollection) {
       if (product.collection) {
-        const collectionValue = String(product.collection || "").trim().toLowerCase();
+        const collectionValue = String(product.collection || "")
+          .trim()
+          .toLowerCase();
         matchesCollection =
-          collectionValue === normalizedCollection || collectionValue === "both";
+          collectionValue === normalizedCollection ||
+          collectionValue === "both";
       } else if (normalizedCollection === "female") {
-        matchesCollection = /\b(female|women|woman|ladies|lady|girl|girls)\b/.test(genderText);
+        matchesCollection =
+          /\b(female|women|woman|ladies|lady|girl|girls)\b/.test(genderText);
       } else if (normalizedCollection === "male") {
-        matchesCollection = /\b(male|men|man|boys|boy|gents|gentlemen)\b/.test(genderText);
+        matchesCollection = /\b(male|men|man|boys|boy|gents|gentlemen)\b/.test(
+          genderText,
+        );
       }
     }
 

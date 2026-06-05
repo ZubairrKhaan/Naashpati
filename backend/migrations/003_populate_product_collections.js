@@ -4,7 +4,9 @@ import mongoose from "mongoose";
 dotenv.config();
 
 const determineCollection = (product) => {
-  const category = String(product.category || "").trim().toLowerCase();
+  const category = String(product.category || "")
+    .trim()
+    .toLowerCase();
   const name = String(product.name || "").toLowerCase();
   const subcategory = String(product.subcategory || "").toLowerCase();
   const brand = String(product.brand || "").toLowerCase();
@@ -19,8 +21,10 @@ const determineCollection = (product) => {
     .join(" ")
     .toLowerCase();
 
-  const maleTerms = /\b(male|men|man|boys|boy|gent|gents|gentlemen|male-collection)\b/;
-  const femaleTerms = /\b(female|women|woman|ladies|lady|girl|girls|female-collection)\b/;
+  const maleTerms =
+    /\b(male|men|man|boys|boy|gent|gents|gentlemen|male-collection)\b/;
+  const femaleTerms =
+    /\b(female|women|woman|ladies|lady|girl|girls|female-collection)\b/;
 
   if (maleTerms.test(category)) {
     return "male";
@@ -66,10 +70,7 @@ const run = async () => {
     const product = await cursor.next();
     const collection = determineCollection(product);
 
-    await products.updateOne(
-      { _id: product._id },
-      { $set: { collection } },
-    );
+    await products.updateOne({ _id: product._id }, { $set: { collection } });
 
     updatedCount += 1;
   }

@@ -214,8 +214,8 @@ export const getProducts = async (req, res) => {
         requestedCollection === "male-collection"
           ? "male"
           : requestedCollection === "female-collection"
-          ? "female"
-          : requestedCollection;
+            ? "female"
+            : requestedCollection;
 
       if (normalizedCollection === "male") {
         query.collection = { $in: ["male", "both"] };
@@ -351,7 +351,10 @@ export const createProduct = async (req, res) => {
     const incomingBody = req.body || {};
 
     // Debug: log incoming collection value for edit requests
-    console.log('updateProduct - incomingBody.collection =>', incomingBody.collection);
+    console.log(
+      "updateProduct - incomingBody.collection =>",
+      incomingBody.collection,
+    );
 
     const payload = {
       ...incomingBody,
@@ -392,7 +395,9 @@ export const createProduct = async (req, res) => {
 
     // normalize collection (required)
     if (hasOwn(incomingBody, "collection")) {
-      payload.collection = String(incomingBody.collection || "").trim().toLowerCase();
+      payload.collection = String(incomingBody.collection || "")
+        .trim()
+        .toLowerCase();
     }
 
     if (!hasOwn(incomingBody, "isActive")) {
@@ -406,7 +411,10 @@ export const createProduct = async (req, res) => {
     const normalizedPayload = payload;
 
     // Debug: log normalized payload collection before update
-    console.log('updateProduct - normalizedPayload.collection =>', normalizedPayload.collection);
+    console.log(
+      "updateProduct - normalizedPayload.collection =>",
+      normalizedPayload.collection,
+    );
 
     if (await isSkuDuplicate(normalizedPayload.sku)) {
       return res.status(409).json({
@@ -649,7 +657,9 @@ export const updateProduct = async (req, res) => {
     }
 
     if (hasOwn(incomingBody, "collection")) {
-      payload.collection = String(incomingBody.collection || "").trim().toLowerCase();
+      payload.collection = String(incomingBody.collection || "")
+        .trim()
+        .toLowerCase();
     }
 
     if (hasOwn(incomingBody, "shipping")) {
@@ -758,18 +768,26 @@ export const updateProduct = async (req, res) => {
     }
 
     // Debug: log updated product collection after DB update
-    console.log('updateProduct - updatedProduct.collection =>', updatedProduct?.collection);
+    console.log(
+      "updateProduct - updatedProduct.collection =>",
+      updatedProduct?.collection,
+    );
 
     // If collection was provided in the incoming payload, enforce it on the
     // returned document and save so schema setters (eg. lowercase) run and
     // the value is guaranteed persisted.
     if (hasOwn(normalizedPayload, "collection") && updatedProduct) {
       try {
-        const desired = String(normalizedPayload.collection || "").trim().toLowerCase();
+        const desired = String(normalizedPayload.collection || "")
+          .trim()
+          .toLowerCase();
         if (updatedProduct.collection !== desired) {
           updatedProduct.collection = desired;
           await updatedProduct.save();
-          console.log('updateProduct - enforced saved collection =>', updatedProduct.collection);
+          console.log(
+            "updateProduct - enforced saved collection =>",
+            updatedProduct.collection,
+          );
         }
       } catch (saveErr) {
         console.error("Error enforcing collection save:", saveErr);

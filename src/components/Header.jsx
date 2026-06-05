@@ -199,8 +199,12 @@ const Header = () => {
       const targetParams = new URLSearchParams(to.split("?")[1] || "");
 
       if (targetParams.has("category")) {
-        const activeCategory = (locationParams.get("category") || "").toLowerCase();
-        const targetCategory = (targetParams.get("category") || "").toLowerCase();
+        const activeCategory = (
+          locationParams.get("category") || ""
+        ).toLowerCase();
+        const targetCategory = (
+          targetParams.get("category") || ""
+        ).toLowerCase();
         return Boolean(activeCategory && activeCategory === targetCategory);
       }
 
@@ -209,9 +213,10 @@ const Header = () => {
           locationParams.get("gender-category") ||
           locationParams.get("collection") ||
           ""
-        )
-          .toLowerCase();
-        const targetGender = (targetParams.get("gender-category") || "").toLowerCase();
+        ).toLowerCase();
+        const targetGender = (
+          targetParams.get("gender-category") || ""
+        ).toLowerCase();
         return Boolean(activeGender && activeGender === targetGender);
       }
     }
