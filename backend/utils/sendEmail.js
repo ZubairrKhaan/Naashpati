@@ -6,7 +6,7 @@ const isProduction =
 const sendEmail = async (options) => {
   try {
     if (!isProduction) {
-      console.warn("Email skipped in development mode.");
+      // console.warn("Email skipped in development mode.");
       return { messageId: "dev-skip-email" };
     }
 
