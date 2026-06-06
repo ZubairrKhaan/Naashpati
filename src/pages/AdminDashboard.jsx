@@ -251,6 +251,10 @@ const AdminDashboard = () => {
   const announcements = useSelector(selectAllAnnouncements);
   const API_URL = import.meta.env.VITE_API_URL || "/api";
   const API_ORIGIN = API_URL.replace(/\/api\/?$/, "");
+  const adminManageableCategories = categories.filter((category) => {
+    const value = String(category.value || "").trim().toLowerCase();
+    return value !== "male-collection" && value !== "female-collection";
+  });
   const defaultFacilityHeading =
     "Pakistan's Largest Nutraceutical Manufacturing Facility";
   const defaultFacilityDescription =
@@ -2393,7 +2397,7 @@ const AdminDashboard = () => {
                     Category Management
                   </h2>
                   <div className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-3">
-                    {categories.map((category) => (
+                    {adminManageableCategories.map((category) => (
                       <div
                         key={category._id || category.value}
                         className="overflow-hidden rounded-xl border bg-white shadow-sm"
