@@ -36,6 +36,8 @@ const BADGE_MARQUEE_STYLE = `
 }
 `;
 
+const LATEST_PRODUCTS_BATCH_SIZE = 4;
+
 const Home = () => {
   const dispatch = useDispatch();
   const categories = useSelector(selectCategories);
@@ -45,6 +47,9 @@ const Home = () => {
   const heroGenderImages = useSelector(selectHeroGenderImages);
   const [showBannerProducts, setShowBannerProducts] = useState(false);
   const [latestProducts, setLatestProducts] = useState([]);
+  const [visibleLatestProductCount, setVisibleLatestProductCount] = useState(
+    LATEST_PRODUCTS_BATCH_SIZE,
+  );
   const [latestProductsLoading, setLatestProductsLoading] = useState(false);
   const bannerProductsRef = useRef(null);
   const API_URL = import.meta.env.VITE_API_URL || "/api";
@@ -101,12 +106,13 @@ const Home = () => {
       try {
         setLatestProductsLoading(true);
         const response = await api.get(
-          "/products?newArrival=true&sort=newest&limit=8&page=1",
+          "/products?newArrival=true&sort=newest&limit=100&page=1",
         );
         if (isMounted) {
           setLatestProducts(
             Array.isArray(response.data?.data) ? response.data.data : [],
           );
+          setVisibleLatestProductCount(LATEST_PRODUCTS_BATCH_SIZE);
         }
       } catch {
         if (isMounted) {
@@ -133,6 +139,12 @@ const Home = () => {
         .sort((a, b) => a.name.localeCompare(b.name)),
     [products],
   );
+  const visibleLatestProducts = latestProducts.slice(
+    0,
+    visibleLatestProductCount,
+  );
+  const canLoadMoreLatestProducts =
+    visibleLatestProductCount < latestProducts.length;
 
   const handleBannerClick = () => {
     setShowBannerProducts(true);
@@ -357,11 +369,32 @@ const Home = () => {
               Loading latest products...
             </p>
           ) : latestProducts.length > 0 ? (
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
-              {latestProducts.map((product) => (
-                <ProductCard key={product._id} product={product} />
-              ))}
-            </div>
+            <>
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
+                {visibleLatestProducts.map((product) => (
+                  <ProductCard key={product._id} product={product} />
+                ))}
+              </div>
+
+              {canLoadMoreLatestProducts && (
+                <div className="mt-10 text-center">
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setVisibleLatestProductCount((count) =>
+                        Math.min(
+                          count + LATEST_PRODUCTS_BATCH_SIZE,
+                          latestProducts.length,
+                        ),
+                      )
+                    }
+                    className="inline-flex items-center justify-center border border-[#232323] bg-[#232323] px-4 py-2 text-[14px] font-semibold text-white transition hover:bg-white hover:text-black"
+                  >
+                    Load more
+                  </button>
+                </div>
+              )}
+            </>
           ) : (
             <p className="text-center text-gray-500">
               No latest collection products yet.
