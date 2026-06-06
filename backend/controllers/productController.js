@@ -1254,7 +1254,7 @@ export const getCategories = async (req, res) => {
   try {
     const categories = await Category.find({ isActive: true })
       .sort({ name: 1 })
-      .select("name value description");
+      .select("name value description image");
 
     res.json({
       success: true,

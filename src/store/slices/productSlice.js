@@ -97,7 +97,7 @@ export const fetchCategories = createAsyncThunk(
   "products/fetchCategories",
   async (_, { rejectWithValue }) => {
     try {
-      const response = await api.get(`/products/categories`);
+      const response = await api.get(`/categories`);
       return response.data.data;
     } catch (error) {
       return rejectWithValue(
