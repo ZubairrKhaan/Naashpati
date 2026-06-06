@@ -65,6 +65,10 @@ export const fetchProducts = createAsyncThunk(
         queryParams.showOnHomeBanner = String(Boolean(params.showOnHomeBanner));
       }
 
+      if (params.newArrival !== undefined) {
+        queryParams.newArrival = String(Boolean(params.newArrival));
+      }
+
       const queryString = new URLSearchParams(queryParams).toString();
       const response = await api.get(`/products?${queryString}`);
 

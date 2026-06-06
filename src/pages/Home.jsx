@@ -20,6 +20,7 @@ import {
 } from "../store/slices/heroBadgeSlice";
 import ProductCard from "../components/ProductCard";
 import TrendingProducts from "../components/TrendingProducts";
+import api from "../api/axios";
 
 const BADGE_MARQUEE_STYLE = `
 @keyframes heroBadgesMarquee {
@@ -43,6 +44,8 @@ const Home = () => {
   const heroCertificateBadges = useSelector(selectHeroBadges);
   const heroGenderImages = useSelector(selectHeroGenderImages);
   const [showBannerProducts, setShowBannerProducts] = useState(false);
+  const [latestProducts, setLatestProducts] = useState([]);
+  const [latestProductsLoading, setLatestProductsLoading] = useState(false);
   const bannerProductsRef = useRef(null);
   const API_URL = import.meta.env.VITE_API_URL || "/api";
   const API_ORIGIN = API_URL.replace(/\/api\/?$/, "");
@@ -90,6 +93,38 @@ const Home = () => {
     dispatch(fetchHeroSlides());
     dispatch(fetchHeroBadges());
   }, [dispatch]);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const fetchLatestProducts = async () => {
+      try {
+        setLatestProductsLoading(true);
+        const response = await api.get(
+          "/products?newArrival=true&sort=newest&limit=8&page=1",
+        );
+        if (isMounted) {
+          setLatestProducts(
+            Array.isArray(response.data?.data) ? response.data.data : [],
+          );
+        }
+      } catch {
+        if (isMounted) {
+          setLatestProducts([]);
+        }
+      } finally {
+        if (isMounted) {
+          setLatestProductsLoading(false);
+        }
+      }
+    };
+
+    fetchLatestProducts();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   const sortedProducts = useMemo(
     () =>
@@ -296,6 +331,42 @@ const Home = () => {
               View All Products
             </Link>
           </div>
+        </div>
+      </section>
+
+      {/* Latest Collection */}
+      <section className="bg-white px-6 pb-16">
+        <div className="mx-auto max-w-7xl">
+          <div className="mb-10 flex items-center justify-between border-b border-gray-900 pb-4">
+            <h2
+              className="text-xl font-semibold text-gray-900"
+              style={{ fontFamily: "Poppins, sans-serif, Inter, system-ui" }}
+            >
+              Latest Collection
+            </h2>
+            <Link
+              to="/products?sort=newest"
+              className="text-sm font-semibold text-gray-600 hover:text-gray-900"
+            >
+              View all
+            </Link>
+          </div>
+
+          {latestProductsLoading ? (
+            <p className="text-center text-gray-500">
+              Loading latest products...
+            </p>
+          ) : latestProducts.length > 0 ? (
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
+              {latestProducts.map((product) => (
+                <ProductCard key={product._id} product={product} />
+              ))}
+            </div>
+          ) : (
+            <p className="text-center text-gray-500">
+              No latest collection products yet.
+            </p>
+          )}
         </div>
       </section>
 

@@ -239,6 +239,10 @@ export const getProducts = async (req, res) => {
       query.showOnHomeBanner = true;
     }
 
+    if (req.query.newArrival === "true") {
+      query.newArrival = true;
+    }
+
     // Price filter
     if (req.query.minPrice || req.query.maxPrice) {
       query.price = {};

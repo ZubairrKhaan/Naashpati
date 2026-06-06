@@ -238,7 +238,7 @@ const Header = () => {
                   ? "text-[#68a300]"
                   : "text-gray-700 hover:text-[#68a300]"
               }`
-            : `pb-0.5 transition-colors font-medium text-[14px] ${
+            : `whitespace-nowrap pb-0.5 transition-colors font-medium text-[14px] ${
                 isActive
                   ? "text-[#68a300] border-b-2 border-[#68a300]"
                   : "text-gray-700 hover:text-[#68a300]"
@@ -338,7 +338,7 @@ const Header = () => {
 
   return (
     <header className="bg-white border-b sticky top-0 z-50 shadow-sm">
-      <div className="max-w-7xl mx-auto px-4">
+      <div className="mx-auto max-w-[1600px] px-4 xl:px-8">
         {/* ── Top row: logo + search + icons ── */}
         <div
           className={`flex h-16 items-center justify-between ${
