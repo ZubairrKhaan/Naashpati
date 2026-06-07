@@ -278,6 +278,10 @@ const productSchema = new mongoose.Schema(
       type: Boolean,
       default: false,
     },
+    lenses: {
+      type: Boolean,
+      default: false,
+    },
     status: {
       type: String,
       enum: ["draft", "published"],
@@ -345,10 +349,6 @@ const productSchema = new mongoose.Schema(
     isActive: {
       type: Boolean,
       default: true,
-    },
-    showOnHomeBanner: {
-      type: Boolean,
-      default: false,
     },
     // Trending metrics (for weekly tracking)
     totalSales: {

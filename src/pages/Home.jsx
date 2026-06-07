@@ -1,23 +1,21 @@
 import { Link } from "react-router-dom";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { MdEco, MdShield, MdLocalShipping, MdFavorite } from "react-icons/md";
 import { FaSeedling } from "react-icons/fa";
 import {
   fetchCategories,
-  fetchProducts,
   selectCategories,
-  selectProducts,
 } from "../store/slices/productSlice";
-import {
-  fetchHeroSlides,
-  selectHeroSlides,
-} from "../store/slices/heroSlideSlice";
 import {
   fetchHeroBadges,
   selectHeroBadges,
   selectHeroGenderImages,
 } from "../store/slices/heroBadgeSlice";
+import {
+  fetchSaleOffers,
+  selectSaleOffers,
+} from "../store/slices/saleOfferSlice";
 import ProductCard from "../components/ProductCard";
 import TrendingProducts from "../components/TrendingProducts";
 import api from "../api/axios";
@@ -37,35 +35,26 @@ const BADGE_MARQUEE_STYLE = `
 `;
 
 const LATEST_PRODUCTS_BATCH_SIZE = 4;
+const LENSES_PRODUCTS_BATCH_SIZE = 4;
 
 const Home = () => {
   const dispatch = useDispatch();
   const categories = useSelector(selectCategories);
-  const products = useSelector(selectProducts);
-  const heroSlides = useSelector(selectHeroSlides);
   const heroCertificateBadges = useSelector(selectHeroBadges);
   const heroGenderImages = useSelector(selectHeroGenderImages);
-  const [showBannerProducts, setShowBannerProducts] = useState(false);
+  const saleOffers = useSelector(selectSaleOffers);
   const [latestProducts, setLatestProducts] = useState([]);
   const [visibleLatestProductCount, setVisibleLatestProductCount] = useState(
     LATEST_PRODUCTS_BATCH_SIZE,
   );
   const [latestProductsLoading, setLatestProductsLoading] = useState(false);
-  const bannerProductsRef = useRef(null);
+  const [lensesProducts, setLensesProducts] = useState([]);
+  const [visibleLensesProductCount, setVisibleLensesProductCount] = useState(
+    LENSES_PRODUCTS_BATCH_SIZE,
+  );
+  const [lensesProductsLoading, setLensesProductsLoading] = useState(false);
   const API_URL = import.meta.env.VITE_API_URL || "/api";
   const API_ORIGIN = API_URL.replace(/\/api\/?$/, "");
-
-  const toHeroImageUrl = (image) => {
-    if (!image) {
-      return "";
-    }
-
-    if (image.startsWith("http://") || image.startsWith("https://")) {
-      return image;
-    }
-
-    return `${API_ORIGIN}${image}`;
-  };
 
   const resolveMediaUrl = (url) => {
     if (!url) return "";
@@ -83,134 +72,90 @@ const Home = () => {
 
   useEffect(() => {
     dispatch(fetchCategories({ force: true }));
-    dispatch(
-      fetchProducts({
-        page: 1,
-        limit: 500,
-        search: "",
-        category: "all",
-        minPrice: "",
-        maxPrice: "",
-        sort: "newest",
-        showOnHomeBanner: true,
-      }),
-    );
-    dispatch(fetchHeroSlides());
     dispatch(fetchHeroBadges());
+    dispatch(fetchSaleOffers());
   }, [dispatch]);
 
   useEffect(() => {
     let isMounted = true;
 
-    const fetchLatestProducts = async () => {
+    const fetchHomeSections = async () => {
       try {
         setLatestProductsLoading(true);
-        const response = await api.get(
-          "/products?newArrival=true&sort=newest&limit=100&page=1",
-        );
+        setLensesProductsLoading(true);
+        const [latestResponse, lensesResponse] = await Promise.all([
+          api.get("/products?newArrival=true&sort=newest&limit=100&page=1"),
+          api.get("/products?lenses=true&sort=newest&limit=100&page=1"),
+        ]);
         if (isMounted) {
           setLatestProducts(
-            Array.isArray(response.data?.data) ? response.data.data : [],
+            Array.isArray(latestResponse.data?.data)
+              ? latestResponse.data.data
+              : [],
+          );
+          setLensesProducts(
+            Array.isArray(lensesResponse.data?.data)
+              ? lensesResponse.data.data
+              : [],
           );
           setVisibleLatestProductCount(LATEST_PRODUCTS_BATCH_SIZE);
+          setVisibleLensesProductCount(LENSES_PRODUCTS_BATCH_SIZE);
         }
       } catch {
         if (isMounted) {
           setLatestProducts([]);
+          setLensesProducts([]);
         }
       } finally {
         if (isMounted) {
           setLatestProductsLoading(false);
+          setLensesProductsLoading(false);
         }
       }
     };
 
-    fetchLatestProducts();
+    fetchHomeSections();
 
     return () => {
       isMounted = false;
     };
   }, []);
 
-  const sortedProducts = useMemo(
-    () =>
-      [...products]
-        .filter((product) => product.showOnHomeBanner)
-        .sort((a, b) => a.name.localeCompare(b.name)),
-    [products],
-  );
   const visibleLatestProducts = latestProducts.slice(
     0,
     visibleLatestProductCount,
   );
   const canLoadMoreLatestProducts =
     visibleLatestProductCount < latestProducts.length;
-
-  const handleBannerClick = () => {
-    setShowBannerProducts(true);
-
-    window.requestAnimationFrame(() => {
-      bannerProductsRef.current?.scrollIntoView({
-        behavior: "smooth",
-        block: "start",
-      });
-    });
-  };
-
-  const homeBanner = useMemo(() => {
-    if (!heroSlides.length) {
-      return null;
-    }
-
-    const firstBanner = heroSlides[0];
-    const image = toHeroImageUrl(firstBanner.image);
-
-    return {
-      _id: firstBanner._id,
-      image,
-    };
-  }, [heroSlides]);
+  const visibleLensesProducts = lensesProducts.slice(
+    0,
+    visibleLensesProductCount,
+  );
+  const canLoadMoreLensesProducts =
+    visibleLensesProductCount < lensesProducts.length;
 
   return (
     <div className="min-h-screen">
-      {/* Clickable Home Banner */}
-      {homeBanner && (
-        <section className="relative overflow-hidden bg-[#ffffff] px-4 py-6 sm:px-6">
-          <button
-            type="button"
-            onClick={handleBannerClick}
-            className="group mx-auto block w-full max-w-7xl"
-            aria-label="Show products from featured banner"
-          >
-            <div className="relative h-[220px] overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm sm:h-[340px] lg:h-[560px]">
-              <img
-                src={homeBanner.image}
-                alt="Featured collection banner"
-                className="h-full w-full object-cover transition duration-300 group-hover:scale-[1.01]"
-              />
-            </div>
-          </button>
-        </section>
-      )}
-
-      {showBannerProducts && homeBanner && (
-        <section ref={bannerProductsRef} className="bg-[#ffffff] px-6 py-10">
-          <div className="mx-auto max-w-7xl">
-            <h2 className="text-center text-2xl font-bold text-[#232323]">
-              Banner Collection Products
-            </h2>
-
-            {sortedProducts.length > 0 ? (
-              <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
-                {sortedProducts.map((product) => (
-                  <ProductCard key={product._id} product={product} />
-                ))}
-              </div>
-            ) : (
-              <p className="mt-6 text-center text-gray-500">
-                No products found yet.
-              </p>
-            )}
+      {saleOffers.length > 0 && (
+        <section className="bg-white px-4 py-6 sm:px-6">
+          <div className="mx-auto grid max-w-7xl grid-cols-1 gap-5">
+            {saleOffers.map((offer) => (
+              <Link
+                key={offer._id}
+                to={`/sales/${offer.slug || offer._id}`}
+                className="group block"
+                aria-label={`Open ${offer.name}`}
+              >
+                <div className="relative h-[180px] overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm sm:h-[260px] lg:h-[500px]">
+                  <img
+                    src={resolveMediaUrl(offer.banner)}
+                    alt={offer.name}
+                    className="h-full w-full object-cover transition duration-300 group-hover:scale-[1.01]"
+                    loading="lazy"
+                  />
+                </div>
+              </Link>
+            ))}
           </div>
         </section>
       )}
@@ -221,7 +166,7 @@ const Home = () => {
             Shop By Gender
           </h2>
 
-          <div className="mt-6 grid grid-cols-1 gap-5 md:grid-cols-2">
+          <div className="mt-6 grid grid-cols-2 gap-3 md:gap-5">
             <Link
               to="/products?gender-category=male-collection"
               className="group relative block overflow-hidden rounded-xl border border-gray-200"
@@ -238,11 +183,11 @@ const Home = () => {
                   <p className="text-xs font-semibold uppercase tracking-[0.18em] text-white/90">
                     Men
                   </p>
-                  <h3 className="mt-1 text-2xl font-bold text-white">
+                  <h3 className="mt-1 text-base font-bold text-white sm:text-2xl">
                     Male Collection
                   </h3>
                 </div>
-                <span className="rounded bg-white/90 px-3 py-1 text-xs font-semibold text-[#232323]">
+                <span className="rounded bg-white/90 px-2 py-1 text-[10px] font-semibold text-[#232323] sm:px-3 sm:text-xs">
                   Explore
                 </span>
               </div>
@@ -264,11 +209,11 @@ const Home = () => {
                   <p className="text-xs font-semibold uppercase tracking-[0.18em] text-white/90">
                     Women
                   </p>
-                  <h3 className="mt-1 text-2xl font-bold text-white">
+                  <h3 className="mt-1 text-base font-bold text-white sm:text-2xl">
                     Female Collection
                   </h3>
                 </div>
-                <span className="rounded bg-white/90 px-3 py-1 text-xs font-semibold text-[#232323]">
+                <span className="rounded bg-white/90 px-2 py-1 text-[10px] font-semibold text-[#232323] sm:px-3 sm:text-xs">
                   Explore
                 </span>
               </div>
@@ -398,6 +343,63 @@ const Home = () => {
           ) : (
             <p className="text-center text-gray-500">
               No latest collection products yet.
+            </p>
+          )}
+        </div>
+      </section>
+
+      {/* Contact Lenses */}
+      <section className="bg-white px-6 pb-16">
+        <div className="mx-auto max-w-7xl">
+          <div className="mb-10 flex items-center justify-between border-b border-gray-900 pb-4">
+            <h2
+              className="text-xl font-semibold text-gray-900"
+              style={{ fontFamily: "Poppins, sans-serif, Inter, system-ui" }}
+            >
+              Contact Lenses
+            </h2>
+            <Link
+              to="/products?lenses=true"
+              className="text-sm font-semibold text-gray-600 hover:text-gray-900"
+            >
+              View all
+            </Link>
+          </div>
+
+          {lensesProductsLoading ? (
+            <p className="text-center text-gray-500">
+              Loading contact lenses...
+            </p>
+          ) : lensesProducts.length > 0 ? (
+            <>
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
+                {visibleLensesProducts.map((product) => (
+                  <ProductCard key={product._id} product={product} />
+                ))}
+              </div>
+
+              {canLoadMoreLensesProducts && (
+                <div className="mt-10 text-center">
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setVisibleLensesProductCount((count) =>
+                        Math.min(
+                          count + LENSES_PRODUCTS_BATCH_SIZE,
+                          lensesProducts.length,
+                        ),
+                      )
+                    }
+                    className="inline-flex items-center justify-center border border-[#232323] bg-[#232323] px-4 py-2 text-[14px] font-semibold text-white transition hover:bg-white hover:text-black"
+                  >
+                    Load more
+                  </button>
+                </div>
+              )}
+            </>
+          ) : (
+            <p className="text-center text-gray-500">
+              No contact lenses products yet.
             </p>
           )}
         </div>

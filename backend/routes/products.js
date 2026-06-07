@@ -150,10 +150,6 @@ const createProductValidation = [
   body("stock")
     .isInt({ min: 0 })
     .withMessage("Stock must be a non-negative integer"),
-  body("showOnHomeBanner")
-    .optional()
-    .isBoolean()
-    .withMessage("showOnHomeBanner must be a boolean"),
   body("thumbnail")
     .optional()
     .isString()
@@ -178,6 +174,10 @@ const createProductValidation = [
     .optional()
     .isBoolean()
     .withMessage("New arrival must be a boolean"),
+  body("lenses")
+    .optional()
+    .isBoolean()
+    .withMessage("Lenses must be a boolean"),
   body("status")
     .optional()
     .isIn(["draft", "published"])
@@ -334,10 +334,6 @@ const updateProductValidation = [
     .optional()
     .isInt({ min: 0 })
     .withMessage("Stock must be a non-negative integer"),
-  body("showOnHomeBanner")
-    .optional()
-    .isBoolean()
-    .withMessage("showOnHomeBanner must be a boolean"),
   body("thumbnail")
     .optional()
     .isString()
@@ -362,6 +358,10 @@ const updateProductValidation = [
     .optional()
     .isBoolean()
     .withMessage("New arrival must be a boolean"),
+  body("lenses")
+    .optional()
+    .isBoolean()
+    .withMessage("Lenses must be a boolean"),
   body("status")
     .optional()
     .isIn(["draft", "published"])

@@ -86,6 +86,7 @@ const EditProduct = ({ onClose, onSuccess, product: productProp }) => {
     trending: false,
     bestseller: false,
     newArrival: false,
+    lenses: false,
     attributes: {
       color: "",
       material: "",
@@ -112,7 +113,6 @@ const EditProduct = ({ onClose, onSuccess, product: productProp }) => {
       seoKeywords: "",
     },
     isActive: true,
-    showOnHomeBanner: false,
     collection: "male",
   });
   const [imagePreview, setImagePreview] = useState(null);
@@ -215,6 +215,7 @@ const EditProduct = ({ onClose, onSuccess, product: productProp }) => {
         trending: product.trending ?? false,
         bestseller: product.bestseller ?? false,
         newArrival: product.newArrival ?? false,
+        lenses: product.lenses ?? false,
         attributes: {
           color: product.attributes?.color || "",
           material: product.attributes?.material || "",
@@ -264,7 +265,6 @@ const EditProduct = ({ onClose, onSuccess, product: productProp }) => {
         },
         collection: product.productCollection || "male",
         isActive: product.isActive ?? true,
-        showOnHomeBanner: product.showOnHomeBanner ?? false,
       });
       // Set image preview from existing product image
       if (product.images?.[0]?.url || product.images?.[0]) {
@@ -606,12 +606,12 @@ const EditProduct = ({ onClose, onSuccess, product: productProp }) => {
       videoUrl,
       status,
       newArrival,
+      lenses,
       trending,
       attributes,
       shipping,
       seo,
       isActive,
-      showOnHomeBanner,
     } = formData;
 
     if (
@@ -753,6 +753,7 @@ const EditProduct = ({ onClose, onSuccess, product: productProp }) => {
         videoUrl: String(videoUrl || "").trim(),
         status,
         newArrival,
+        lenses,
         trending,
         attributes: {
           ...attributes,
@@ -781,7 +782,6 @@ const EditProduct = ({ onClose, onSuccess, product: productProp }) => {
           .map((item) => item.trim())
           .filter(Boolean),
         isActive,
-        showOnHomeBanner,
         image: finalImage,
         images: finalImages,
       };
@@ -1523,15 +1523,14 @@ const EditProduct = ({ onClose, onSuccess, product: productProp }) => {
             <label className="inline-flex items-center">
               <input
                 type="checkbox"
-                name="showOnHomeBanner"
-                checked={formData.showOnHomeBanner}
+                name="lenses"
+                checked={formData.lenses}
                 onChange={handleChange}
                 className="h-4 w-4 rounded border-gray-300 text-green-600 focus:ring-green-500"
               />
-              <span className="ml-2 text-sm text-gray-700">
-                Show in Home banner products
-              </span>
+              <span className="ml-2 text-sm text-gray-700">Lenses</span>
             </label>
+
           </div>
 
           <div className="space-y-4 rounded-md border border-gray-200 p-4">

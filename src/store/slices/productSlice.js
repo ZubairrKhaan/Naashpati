@@ -61,12 +61,12 @@ export const fetchProducts = createAsyncThunk(
         queryParams.status = params.status;
       }
 
-      if (params.showOnHomeBanner !== undefined) {
-        queryParams.showOnHomeBanner = String(Boolean(params.showOnHomeBanner));
-      }
-
       if (params.newArrival !== undefined) {
         queryParams.newArrival = String(Boolean(params.newArrival));
+      }
+
+      if (params.lenses !== undefined) {
+        queryParams.lenses = String(Boolean(params.lenses));
       }
 
       const queryString = new URLSearchParams(queryParams).toString();

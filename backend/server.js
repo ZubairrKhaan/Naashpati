@@ -29,6 +29,7 @@ import announcementRoutes from "./routes/announcements.js";
 import heroSlideRoutes from "./routes/heroSlides.js";
 import heroBadgeRoutes from "./routes/heroBadges.js";
 import productBannerRoutes from "./routes/productBanners.js";
+import saleOfferRoutes from "./routes/saleOffers.js";
 import aboutContentRoutes from "./routes/aboutContent.js";
 import batchRoutes from "./routes/batches.js";
 import {
@@ -171,6 +172,7 @@ app.use("/api/announcements", announcementRoutes);
 app.use("/api/hero-slides", heroSlideRoutes);
 app.use("/api/hero-badges", heroBadgeRoutes);
 app.use("/api/product-banners", productBannerRoutes);
+app.use("/api/sale-offers", saleOfferRoutes);
 app.use("/api/about-content", aboutContentRoutes);
 app.use("/api/batches", batchRoutes);
 
