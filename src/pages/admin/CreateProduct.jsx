@@ -69,6 +69,7 @@ const CreateProduct = ({ onClose, onSuccess, initialCategory = "" }) => {
     trending: false,
     bestseller: false,
     newArrival: false,
+    lenses: false,
     attributes: {
       color: "",
       material: "",
@@ -95,7 +96,6 @@ const CreateProduct = ({ onClose, onSuccess, initialCategory = "" }) => {
       seoKeywords: "",
     },
     isActive: true,
-    showOnHomeBanner: false,
   });
   const [imagePreview, setImagePreview] = useState(null);
   const [uploading, setUploading] = useState(false);
@@ -315,12 +315,12 @@ const CreateProduct = ({ onClose, onSuccess, initialCategory = "" }) => {
       videoUrl,
       status,
       newArrival,
+      lenses,
       trending,
       attributes,
       shipping,
       seo,
       isActive,
-      showOnHomeBanner,
     } = formData;
 
     // Frontend validation matching backend requirements
@@ -443,6 +443,7 @@ const CreateProduct = ({ onClose, onSuccess, initialCategory = "" }) => {
         videoUrl: (videoUrl || "").trim(),
         status,
         newArrival,
+        lenses,
         trending,
         attributes: {
           ...attributes,
@@ -467,7 +468,6 @@ const CreateProduct = ({ onClose, onSuccess, initialCategory = "" }) => {
           .map((item) => item.trim())
           .filter(Boolean),
         isActive,
-        showOnHomeBanner,
         image: (thumbnail || "").trim(),
         images: [],
       };
@@ -1009,15 +1009,14 @@ const CreateProduct = ({ onClose, onSuccess, initialCategory = "" }) => {
           <label className="inline-flex items-center">
             <input
               type="checkbox"
-              name="showOnHomeBanner"
-              checked={formData.showOnHomeBanner}
+              name="lenses"
+              checked={formData.lenses}
               onChange={handleChange}
               className="h-4 w-4 rounded border-gray-300 text-green-600 focus:ring-green-500"
             />
-            <span className="ml-2 text-sm text-gray-700">
-              Show in Home banner products
-            </span>
+            <span className="ml-2 text-sm text-gray-700">Lenses</span>
           </label>
+
         </div>
 
         <div className="space-y-4 rounded-md border border-gray-200 p-4">

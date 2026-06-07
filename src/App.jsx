@@ -8,6 +8,7 @@ import Loader from "./components/Loader";
 const Home = lazy(() => import("./pages/Home"));
 const Products = lazy(() => import("./pages/Products"));
 const ProductDetail = lazy(() => import("./pages/ProductDetail"));
+const SaleOffer = lazy(() => import("./pages/SaleOffer"));
 const Cart = lazy(() => import("./pages/Cart"));
 const Checkout = lazy(() => import("./pages/Checkout"));
 const Login = lazy(() => import("./pages/Login"));
@@ -63,6 +64,7 @@ function App() {
             }
           />
           <Route path="products/:id" element={<ProductDetail />} />
+          <Route path="sales/:id" element={<SaleOffer />} />
           <Route path="cart" element={<Cart />} />
           <Route path="checkout" element={<Checkout />} />
           <Route path="login" element={<Login />} />

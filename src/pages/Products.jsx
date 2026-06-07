@@ -45,6 +45,7 @@ const Products = ({ collectionType = "" }) => {
   const productBanners = useSelector(selectProductBanners);
   const heroSlides = useSelector(selectHeroSlides);
   const initialCategory = searchParams.get("category") || "";
+  const lensesOnly = searchParams.get("lenses") === "true";
   const selectedBannerId = searchParams.get("banner") || "";
   const selectedHeroBannerId = searchParams.get("heroBanner") || "";
   const rawGenderCategory = String(
@@ -105,11 +106,15 @@ const Products = ({ collectionType = "" }) => {
       fetchParams.category = initialCategory;
     }
 
+    if (lensesOnly) {
+      fetchParams.lenses = true;
+    }
+
     dispatch(fetchProducts(fetchParams));
     dispatch(fetchCategories());
     dispatch(fetchProductBanners());
     dispatch(fetchHeroSlides());
-  }, [dispatch, rawGenderCategory, collectionType, initialCategory]);
+  }, [dispatch, rawGenderCategory, collectionType, initialCategory, lensesOnly]);
 
   const bannerSlides = useMemo(() => {
     if (productBanners.length > 0) {

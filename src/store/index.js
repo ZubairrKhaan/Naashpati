@@ -8,6 +8,7 @@ import announcementReducer from "./slices/announcementSlice";
 import heroSlideReducer from "./slices/heroSlideSlice";
 import heroBadgeReducer from "./slices/heroBadgeSlice";
 import productBannerReducer from "./slices/productBannerSlice";
+import saleOfferReducer from "./slices/saleOfferSlice";
 import trendingReducer from "./slices/trendingSlice";
 
 export const store = configureStore({
@@ -21,6 +22,7 @@ export const store = configureStore({
     heroSlides: heroSlideReducer,
     heroBadges: heroBadgeReducer,
     productBanners: productBannerReducer,
+    saleOffers: saleOfferReducer,
     trending: trendingReducer,
   },
   middleware: (getDefaultMiddleware) =>

@@ -235,12 +235,12 @@ export const getProducts = async (req, res) => {
       }
     }
 
-    if (req.query.showOnHomeBanner === "true") {
-      query.showOnHomeBanner = true;
-    }
-
     if (req.query.newArrival === "true") {
       query.newArrival = true;
+    }
+
+    if (req.query.lenses === "true") {
+      query.lenses = true;
     }
 
     // Price filter
@@ -398,6 +398,7 @@ export const createProduct = async (req, res) => {
       trending: normalizeBoolean(incomingBody.trending, false),
       bestseller: normalizeBoolean(incomingBody.bestseller, false),
       newArrival: normalizeBoolean(incomingBody.newArrival, false),
+      lenses: normalizeBoolean(incomingBody.lenses, false),
       status: ["draft", "published"].includes(incomingBody.status)
         ? incomingBody.status
         : "published",
@@ -657,6 +658,10 @@ export const updateProduct = async (req, res) => {
 
     if (hasOwn(incomingBody, "newArrival")) {
       payload.newArrival = normalizeBoolean(incomingBody.newArrival, false);
+    }
+
+    if (hasOwn(incomingBody, "lenses")) {
+      payload.lenses = normalizeBoolean(incomingBody.lenses, false);
     }
 
     if (hasOwn(incomingBody, "status")) {

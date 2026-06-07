@@ -241,7 +241,7 @@ const UserDetail = () => {
             </div>
             <div className="text-center">
               <div className="text-2xl font-bold text-gray-900">
-                ${userData.totalSpent?.toFixed(2) || "0.00"}
+                Rs. {userData.totalSpent?.toFixed(2) || "0.00"}
               </div>
               <div className="text-sm text-gray-600">Total Spent</div>
             </div>
