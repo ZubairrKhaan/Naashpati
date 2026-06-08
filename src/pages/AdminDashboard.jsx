@@ -5,7 +5,7 @@ const resolveMediaUrl = (url) => {
   if (url.startsWith("/uploads/")) return `${API_ORIGIN}${url}`;
   return url;
 };
-import { useState, useEffect } from "react";
+import { useCallback, useState, useEffect } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { useNavigate } from "react-router-dom";
 import {
@@ -92,6 +92,8 @@ import {
   selectAllSaleOffers,
 } from "../store/slices/saleOfferSlice";
 
+const LENSES_PRODUCTS_SECTION = "lenses-products";
+
 const AdminDashboard = () => {
   const dispatch = useDispatch();
   const navigate = useNavigate();
@@ -117,6 +119,7 @@ const AdminDashboard = () => {
   const [activeProductCategory, setActiveProductCategory] = useState("all");
   const [productCategoriesOpen, setProductCategoriesOpen] = useState(false);
   const [addProductCategory, setAddProductCategory] = useState("");
+  const [addProductIsLenses, setAddProductIsLenses] = useState(false);
   const [showEditProductModal, setShowEditProductModal] = useState(false);
   const [editingProduct, setEditingProduct] = useState(null);
   const [showAnnouncementModal, setShowAnnouncementModal] = useState(false);
@@ -281,9 +284,13 @@ const AdminDashboard = () => {
   const visibleProducts =
     activeProductCategory === "all"
       ? products
+      : activeProductCategory === LENSES_PRODUCTS_SECTION
+        ? products.filter((product) => product.lenses)
       : products.filter((product) => product.category === activeProductCategory);
   const activeProductCategoryName =
-    selectedProductCategory?.name || "All Products";
+    activeProductCategory === LENSES_PRODUCTS_SECTION
+      ? "Lenses Products"
+      : selectedProductCategory?.name || "All Products";
   const defaultFacilityHeading =
     "Pakistan's Largest Nutraceutical Manufacturing Facility";
   const defaultFacilityDescription =
@@ -325,6 +332,16 @@ const AdminDashboard = () => {
     },
   ];
   const defaultHealthPriorityImages = ["", "", "", ""];
+
+  const getDashboardProductsFetchParams = useCallback(
+    (section = activeProductCategory) => ({
+      page: 1,
+      limit: 200,
+      includeDraft: true,
+      ...(section === LENSES_PRODUCTS_SECTION ? { lenses: true } : {}),
+    }),
+    [activeProductCategory],
+  );
 
   const getAuthToken = () => {
     const rawToken = localStorage.getItem("accessToken");
@@ -605,7 +622,7 @@ const AdminDashboard = () => {
     if (!(isAuthenticated && user?.role === "admin")) return;
 
     if (activeTab === "products") {
-      dispatch(fetchProducts({ page: 1, limit: 200, includeDraft: true }));
+      dispatch(fetchProducts(getDashboardProductsFetchParams()));
       dispatch(fetchAllProductBanners());
     } else if (activeTab === "categories") {
       dispatch(fetchCategories());
@@ -626,10 +643,21 @@ const AdminDashboard = () => {
     } else if (activeTab === "about-video") {
       fetchAboutContent();
     }
-  }, [activeTab, dispatch, isAuthenticated, user]);
+  }, [
+    activeTab,
+    dispatch,
+    getDashboardProductsFetchParams,
+    isAuthenticated,
+    user,
+  ]);
 
   useEffect(() => {
-    if (activeProductCategory === "all") return;
+    if (
+      activeProductCategory === "all" ||
+      activeProductCategory === LENSES_PRODUCTS_SECTION
+    ) {
+      return;
+    }
 
     const categoryExists = adminManageableCategories.some(
       (category) => category.value === activeProductCategory,
@@ -1534,12 +1562,14 @@ const AdminDashboard = () => {
   };
 
   const handleOpenAddProduct = (categoryValue = activeProductCategory) => {
+    const isLensesSection = categoryValue === LENSES_PRODUCTS_SECTION;
     const categoryForForm =
-      categoryValue && categoryValue !== "all"
+      categoryValue && categoryValue !== "all" && !isLensesSection
         ? categoryValue
         : adminManageableCategories[0]?.value || "";
 
-    setAddProductCategory(categoryForForm);
+    setAddProductCategory(isLensesSection ? "" : categoryForForm);
+    setAddProductIsLenses(isLensesSection);
     setShowAddProductModal(true);
   };
 
@@ -2156,7 +2186,7 @@ const AdminDashboard = () => {
                 />
               </span>
             </button>
-            {productCategoriesOpen && adminManageableCategories.length > 0 && (
+            {productCategoriesOpen && (
               <div className="space-y-1 border-l border-gray-200 pl-3">
                 <button
                   type="button"
@@ -2171,6 +2201,22 @@ const AdminDashboard = () => {
                   }`}
                 >
                   All Products
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setActiveTab("products");
+                    setActiveProductCategory(LENSES_PRODUCTS_SECTION);
+                    setProductCategoriesOpen(true);
+                  }}
+                  className={`w-full rounded-md px-3 py-2 text-left text-sm font-medium transition ${
+                    activeTab === "products" &&
+                    activeProductCategory === LENSES_PRODUCTS_SECTION
+                      ? "bg-green-50 text-green-700"
+                      : "text-gray-500 hover:bg-gray-50 hover:text-gray-900"
+                  }`}
+                >
+                  Lenses Products
                 </button>
                 {adminManageableCategories.map((category) => (
                   <button
@@ -2384,7 +2430,8 @@ const AdminDashboard = () => {
               </div>
 
               <div>
-                {adminManageableCategories.length > 0 && (
+                {(adminManageableCategories.length > 0 ||
+                  activeProductCategory === LENSES_PRODUCTS_SECTION) && (
                   <div className="mb-6 flex flex-wrap gap-2">
                     <button
                       type="button"
@@ -2396,6 +2443,19 @@ const AdminDashboard = () => {
                       }`}
                     >
                       All Products
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setActiveProductCategory(LENSES_PRODUCTS_SECTION)
+                      }
+                      className={`rounded border px-3 py-2 text-sm font-medium ${
+                        activeProductCategory === LENSES_PRODUCTS_SECTION
+                          ? "border-green-200 bg-green-50 text-green-700"
+                          : "border-gray-200 text-gray-600 hover:bg-gray-50"
+                      }`}
+                    >
+                      Lenses Products
                     </button>
                     {adminManageableCategories.map((category) => (
                       <button
@@ -2475,13 +2535,15 @@ const AdminDashboard = () => {
                                   {product.name}
                                 </div>
                                 <div className="text-xs text-gray-500">
-                                  Product
+                                  {product.lenses ? "Lens product" : "Product"}
                                 </div>
                               </div>
                             </div>
                           </td>
                           <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500 capitalize">
-                            {product.category}
+                            {product.lenses
+                              ? "Lenses"
+                              : product.category || "Uncategorized"}
                           </td>
                           <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-900">
                             {product.sku || "N/A"}
@@ -4795,6 +4857,7 @@ const AdminDashboard = () => {
                 onClick={() => {
                   setShowAddProductModal(false);
                   setAddProductCategory("");
+                  setAddProductIsLenses(false);
                 }}
                 className="text-gray-400 hover:text-gray-600"
               >
@@ -4815,16 +4878,27 @@ const AdminDashboard = () => {
             </div>
             <div className="p-6">
               <CreateProduct
-                key={addProductCategory || "new-product"}
+                key={
+                  addProductIsLenses
+                    ? LENSES_PRODUCTS_SECTION
+                    : addProductCategory || "new-product"
+                }
                 initialCategory={addProductCategory}
+                initialLenses={addProductIsLenses}
                 onClose={() => {
                   setShowAddProductModal(false);
                   setAddProductCategory("");
+                  setAddProductIsLenses(false);
                 }}
                 onSuccess={() => {
                   setShowAddProductModal(false);
                   setAddProductCategory("");
-                  dispatch(fetchProducts({ includeDraft: true })); // Refresh products list
+                  setAddProductIsLenses(false);
+                  dispatch(
+                    fetchProducts(
+                      getDashboardProductsFetchParams(activeProductCategory),
+                    ),
+                  ); // Refresh products list
                 }}
               />
             </div>
@@ -4872,7 +4946,11 @@ const AdminDashboard = () => {
                 onSuccess={() => {
                   setShowEditProductModal(false);
                   setEditingProduct(null);
-                  dispatch(fetchProducts({ includeDraft: true })); // Refresh products list
+                  dispatch(
+                    fetchProducts(
+                      getDashboardProductsFetchParams(activeProductCategory),
+                    ),
+                  ); // Refresh products list
                 }}
               />
             </div>
