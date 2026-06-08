@@ -34,7 +34,12 @@ const DEFAULT_CATEGORIES = [
   { name: "Female Collection", description: "" },
 ];
 
-const CreateProduct = ({ onClose, onSuccess, initialCategory = "" }) => {
+const CreateProduct = ({
+  onClose,
+  onSuccess,
+  initialCategory = "",
+  initialLenses = false,
+}) => {
   const dispatch = useDispatch();
   const user = useSelector(selectAuthUser);
   const isAuthenticated = useSelector(selectIsAuthenticated);
@@ -159,6 +164,24 @@ const CreateProduct = ({ onClose, onSuccess, initialCategory = "" }) => {
     [categories],
   );
   const isLensProduct = Boolean(formData.lenses);
+
+  useEffect(() => {
+    if (!initialLenses) {
+      return;
+    }
+
+    setFormData((prev) =>
+      prev.lenses && !prev.category && !prev.collection && !prev.subcategory
+        ? prev
+        : {
+            ...prev,
+            lenses: true,
+            category: "",
+            collection: "",
+            subcategory: "",
+          },
+    );
+  }, [initialLenses]);
 
   useEffect(() => {
     if (isLensProduct) {
