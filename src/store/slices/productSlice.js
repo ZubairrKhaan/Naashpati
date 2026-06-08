@@ -66,7 +66,10 @@ export const fetchProducts = createAsyncThunk(
       }
 
       if (params.lenses !== undefined) {
-        queryParams.lenses = String(Boolean(params.lenses));
+        queryParams.lenses =
+          typeof params.lenses === "boolean"
+            ? String(params.lenses)
+            : String(params.lenses);
       }
 
       const queryString = new URLSearchParams(queryParams).toString();

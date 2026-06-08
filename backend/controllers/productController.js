@@ -243,6 +243,8 @@ export const getProducts = async (req, res) => {
 
     if (req.query.lenses === "true") {
       query.lenses = true;
+    } else if (req.query.lenses === "all") {
+      delete query.lenses;
     } else {
       query.lenses = { $ne: true };
     }
