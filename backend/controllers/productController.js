@@ -56,6 +56,8 @@ const normalizeBoolean = (value, fallback = false) => {
   return fallback;
 };
 
+const isLensProductValue = (value) => normalizeBoolean(value, false);
+
 const normalizeNumber = (value, fallback = 0) => {
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : fallback;
@@ -417,7 +419,7 @@ export const createProduct = async (req, res) => {
       payload.productCollection = normalizedProductCollection;
     }
 
-    if (payload.lenses) {
+    if (isLensProductValue(payload.lenses)) {
       payload.category = "";
       payload.productCollection = "";
       payload.subcategory = "";
@@ -693,7 +695,12 @@ export const updateProduct = async (req, res) => {
       payload.productCollection = normalizedProductCollection;
     }
 
-    if (payload.lenses) {
+    const nextIsLensProduct = hasOwn(payload, "lenses")
+      ? isLensProductValue(payload.lenses)
+      : isLensProductValue(product.lenses);
+
+    if (nextIsLensProduct) {
+      payload.lenses = true;
       payload.category = "";
       payload.productCollection = "";
       payload.subcategory = "";
@@ -742,6 +749,7 @@ export const updateProduct = async (req, res) => {
     }
 
     let updatedProduct;
+    const shouldRunUpdateValidators = !nextIsLensProduct;
 
     const updateWithSession = async () => {
       const session = await mongoose.startSession();
@@ -765,7 +773,7 @@ export const updateProduct = async (req, res) => {
             normalizedPayload,
             {
               new: true,
-              runValidators: true,
+              runValidators: shouldRunUpdateValidators,
               session,
             },
           );
@@ -799,7 +807,7 @@ export const updateProduct = async (req, res) => {
         normalizedPayload,
         {
           new: true,
-          runValidators: true,
+          runValidators: shouldRunUpdateValidators,
         },
       );
     }
@@ -813,7 +821,11 @@ export const updateProduct = async (req, res) => {
     // If productCollection was provided in the incoming payload, enforce it on the
     // returned document and save so schema setters (eg. lowercase) run and
     // the value is guaranteed persisted.
-    if (hasOwn(normalizedPayload, "productCollection") && updatedProduct) {
+    if (
+      hasOwn(normalizedPayload, "productCollection") &&
+      updatedProduct &&
+      !nextIsLensProduct
+    ) {
       try {
         const desired = String(normalizedPayload.productCollection || "")
           .trim()

@@ -156,23 +156,11 @@ const productSchema = new mongoose.Schema(
     },
     category: {
       type: String,
-      required: [
-        function () {
-          return !this.lenses;
-        },
-        "Product category is required",
-      ],
       trim: true,
       default: "",
     },
     productCollection: {
       type: String,
-      required: [
-        function () {
-          return !this.lenses;
-        },
-        "Product collection is required",
-      ],
       enum: ["male", "female", "both", ""],
       trim: true,
       lowercase: true,
