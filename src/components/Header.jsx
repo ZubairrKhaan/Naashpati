@@ -342,7 +342,7 @@ const Header = () => {
       {showAuthPendingState ? (
         <div className="h-8 w-8 animate-pulse rounded-md bg-gray-100 md:w-20" />
       ) : user ? (
-        <div className="relative">
+        <div className="relative hidden md:block">
           <button
             type="button"
             onClick={() => {
@@ -495,7 +495,18 @@ const Header = () => {
             ))}
           </nav>
 
-          {!user && !showAuthPendingState && (
+          {user ? (
+            <div className="mt-auto border-t border-gray-100 px-4 py-4">
+              <Link
+                to="/profile"
+                onClick={() => setIsMobileMenuOpen(false)}
+                className="flex items-center gap-2 rounded px-2 py-2.5 font-semibold text-gray-700 hover:bg-gray-50 hover:text-[#68a300]"
+              >
+                <MdPerson className="text-xl" />
+                Profile
+              </Link>
+            </div>
+          ) : !showAuthPendingState ? (
             <div className="mt-auto border-t border-gray-100 px-4 py-4">
               <Link
                 to="/login"
@@ -512,7 +523,7 @@ const Header = () => {
                 Sign Up
               </Link>
             </div>
-          )}
+          ) : null}
         </aside>
       </div>
     </header>
