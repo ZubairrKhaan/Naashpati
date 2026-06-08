@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import toast from "react-hot-toast";
 import {
@@ -149,13 +149,22 @@ const CreateProduct = ({ onClose, onSuccess, initialCategory = "" }) => {
     });
   }, [categories, dispatch, isAuthenticated, user]);
 
-  const availableCategories = categories.filter(
-    (category) =>
-      category.value !== "male-collection" &&
-      category.value !== "female-collection",
+  const availableCategories = useMemo(
+    () =>
+      categories.filter(
+        (category) =>
+          category.value !== "male-collection" &&
+          category.value !== "female-collection",
+      ),
+    [categories],
   );
+  const isLensProduct = Boolean(formData.lenses);
 
   useEffect(() => {
+    if (isLensProduct) {
+      return;
+    }
+
     if (initialCategory) {
       setFormData((prev) =>
         prev.category === initialCategory
@@ -171,12 +180,22 @@ const CreateProduct = ({ onClose, onSuccess, initialCategory = "" }) => {
         category: availableCategories[0].value,
       }));
     }
-  }, [initialCategory, availableCategories, formData.category]);
+  }, [initialCategory, availableCategories, formData.category, isLensProduct]);
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
     setFormData((prev) => {
       const next = { ...prev, [name]: type === "checkbox" ? checked : value };
+      if (name === "lenses") {
+        if (checked) {
+          next.category = "";
+          next.collection = "";
+          next.subcategory = "";
+        } else {
+          next.category = prev.category || availableCategories[0]?.value || "";
+          next.collection = prev.collection || "male";
+        }
+      }
       // If category changed and it's a known male/female category, default collection
       if (name === "category") {
         if (value === "male-collection") {
@@ -389,12 +408,12 @@ const CreateProduct = ({ onClose, onSuccess, initialCategory = "" }) => {
       return;
     }
 
-    if (!category) {
+    if (!lenses && !category) {
       toast.error("Please select a valid category.");
       return;
     }
 
-    if (!formData.collection) {
+    if (!lenses && !formData.collection) {
       toast.error("Please select a gender category for the product.");
       return;
     }
@@ -420,7 +439,7 @@ const CreateProduct = ({ onClose, onSuccess, initialCategory = "" }) => {
         name: name.trim(),
         slug: (slug || "").trim().toLowerCase(),
         shortDescription: (shortDescription || "").trim(),
-        subcategory: (subcategory || "").trim(),
+        subcategory: lenses ? "" : (subcategory || "").trim(),
         brand: (brand || "").trim(),
         tags: String(tags || "")
           .split(",")
@@ -434,8 +453,8 @@ const CreateProduct = ({ onClose, onSuccess, initialCategory = "" }) => {
         salePrice: Number(salePriceNum),
         originalPrice: Number(originalPriceNum),
         costPrice: Number(costPrice),
-        category,
-        productCollection: formData.collection,
+        category: lenses ? "" : category,
+        productCollection: lenses ? "" : formData.collection,
         sku: normalizedSku,
         barcode: (barcode || "").trim(),
         stock: Number(stock),
@@ -581,9 +600,11 @@ const CreateProduct = ({ onClose, onSuccess, initialCategory = "" }) => {
               name="category"
               value={formData.category}
               onChange={handleChange}
-              className="mt-1 block w-full rounded-md border-gray-300 bg-white shadow-sm focus:border-green-500 focus:ring-green-500 sm:text-sm"
-              required
+              disabled={isLensProduct}
+              className="mt-1 block w-full rounded-md border-gray-300 bg-white shadow-sm focus:border-green-500 focus:ring-green-500 disabled:bg-gray-100 disabled:text-gray-400 sm:text-sm"
+              required={!isLensProduct}
             >
+              {isLensProduct && <option value="">Not used for lenses</option>}
               {availableCategories.map((option) => (
                 <option key={option._id || option.value} value={option.value}>
                   {option.name}
@@ -604,9 +625,11 @@ const CreateProduct = ({ onClose, onSuccess, initialCategory = "" }) => {
               name="collection"
               value={formData.collection}
               onChange={handleChange}
-              className="mt-1 block w-full rounded-md border-gray-300 bg-white shadow-sm focus:border-green-500 focus:ring-green-500 sm:text-sm"
-              required
+              disabled={isLensProduct}
+              className="mt-1 block w-full rounded-md border-gray-300 bg-white shadow-sm focus:border-green-500 focus:ring-green-500 disabled:bg-gray-100 disabled:text-gray-400 sm:text-sm"
+              required={!isLensProduct}
             >
+              {isLensProduct && <option value="">Not used for lenses</option>}
               <option value="male">Male</option>
               <option value="female">Female</option>
               <option value="both">Both</option>
@@ -626,7 +649,8 @@ const CreateProduct = ({ onClose, onSuccess, initialCategory = "" }) => {
               type="text"
               value={formData.subcategory}
               onChange={handleChange}
-              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-green-500 focus:ring-green-500 sm:text-sm"
+              disabled={isLensProduct}
+              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-green-500 focus:ring-green-500 disabled:bg-gray-100 disabled:text-gray-400 sm:text-sm"
               placeholder="Example: Herbal Supplements"
             />
           </div>
