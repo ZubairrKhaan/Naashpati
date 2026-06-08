@@ -80,7 +80,7 @@ const getClientBaseUrl = () => {
 const sendAccountCreatedEmail = async (user) => {
   const clientBaseUrl = getClientBaseUrl().replace(/\/$/, "");
   const loginUrl = `${clientBaseUrl}/login`;
-  const logoUrl = `${clientBaseUrl}/assets/logos/Naashpati.png`;
+  const logoUrl = `${clientBaseUrl}/assets/logos/Logo.png`;
   const message = `Welcome to Naashpati, ${user.firstName}! Your account has been created successfully. You can sign in here: ${loginUrl}`;
   const html = `
     <div style="margin:0;padding:24px;background:#f6f8f2;font-family:Arial,sans-serif;color:#1f2937;">

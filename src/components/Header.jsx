@@ -419,9 +419,9 @@ const Header = () => {
             className="absolute left-1/2 flex -translate-x-1/2 items-center shrink-0 border-0 outline-none ring-0 focus:outline-none focus:ring-0 focus-visible:outline-none md:static md:translate-x-0"
           >
             <img
-              src="/assets/logos/Naashpati.png"
+              src="/assets/logos/Logo.png"
               alt="Naashpati"
-              className="h-12 w-auto border-0 outline-none"
+              className="h-6 w-auto border-0 outline-none"
             />
           </Link>
 

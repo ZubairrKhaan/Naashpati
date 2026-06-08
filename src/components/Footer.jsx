@@ -14,9 +14,9 @@ const Footer = () => {
                 className="flex items-center border-0 outline-none ring-0 focus:outline-none focus:ring-0 focus-visible:outline-none"
               >
                 <img
-                  src="/assets/logos/Naashpati.png"
+                  src="/assets/logos/Logo_White.png"
                   alt="Naashpati"
-                  className="h-12 w-auto border-0 outline-none"
+                  className="h-6 w-auto border-0 outline-none"
                 />
               </Link>
             </div>
