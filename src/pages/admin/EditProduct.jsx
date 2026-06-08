@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { useParams, useNavigate } from "react-router-dom";
 import toast from "react-hot-toast";
@@ -122,6 +122,16 @@ const EditProduct = ({ onClose, onSuccess, product: productProp }) => {
   const [questionAnswerDrafts, setQuestionAnswerDrafts] = useState({});
   const [moderatingId, setModeratingId] = useState("");
   const defaultCategoriesEnsured = useRef(false);
+  const availableCategories = useMemo(
+    () =>
+      categories.filter(
+        (category) =>
+          category.value !== "male-collection" &&
+          category.value !== "female-collection",
+      ),
+    [categories],
+  );
+  const isLensProduct = Boolean(formData.lenses);
 
   useEffect(() => {
     if (!isAuthenticated || user?.role !== "admin") {
@@ -183,7 +193,7 @@ const EditProduct = ({ onClose, onSuccess, product: productProp }) => {
         name: product.name || "",
         slug: product.slug || "",
         shortDescription: product.shortDescription || "",
-        subcategory: product.subcategory || "",
+        subcategory: product.lenses ? "" : product.subcategory || "",
         brand: product.brand || "",
         tags: Array.isArray(product.tags) ? product.tags.join(", ") : "",
         briefDescriptionPoints:
@@ -203,7 +213,9 @@ const EditProduct = ({ onClose, onSuccess, product: productProp }) => {
         originalPrice:
           (product.originalPrice ?? product.price)?.toString() || "",
         costPrice: product.costPrice?.toString() || "",
-        category: product.category || categories[0]?.value || "",
+        category: product.lenses
+          ? ""
+          : product.category || availableCategories[0]?.value || "",
         sku: product.sku || "",
         barcode: product.barcode || "",
         stock: product.stock?.toString() || "0",
@@ -263,7 +275,7 @@ const EditProduct = ({ onClose, onSuccess, product: productProp }) => {
             ? product.seo.seoKeywords.join(", ")
             : "",
         },
-        collection: product.productCollection || "male",
+        collection: product.lenses ? "" : product.productCollection || "male",
         isActive: product.isActive ?? true,
       });
       // Set image preview from existing product image
@@ -286,7 +298,7 @@ const EditProduct = ({ onClose, onSuccess, product: productProp }) => {
         }, {}),
       );
     }
-  }, [categories, product]);
+  }, [availableCategories, product]);
 
   const getAuthToken = () => {
     if (accessToken) {
@@ -489,6 +501,16 @@ const EditProduct = ({ onClose, onSuccess, product: productProp }) => {
     const { name, value, type, checked } = e.target;
     setFormData((prev) => {
       const next = { ...prev, [name]: type === "checkbox" ? checked : value };
+      if (name === "lenses") {
+        if (checked) {
+          next.category = "";
+          next.collection = "";
+          next.subcategory = "";
+        } else {
+          next.category = prev.category || availableCategories[0]?.value || "";
+          next.collection = prev.collection || "male";
+        }
+      }
       if (name === "category") {
         if (value === "male-collection") {
           next.collection = "male";
@@ -619,7 +641,7 @@ const EditProduct = ({ onClose, onSuccess, product: productProp }) => {
       !shortDescription ||
       !price ||
       !costPrice ||
-      !category ||
+      (!lenses && !category) ||
       !sku ||
       stock === ""
     ) {
@@ -627,7 +649,7 @@ const EditProduct = ({ onClose, onSuccess, product: productProp }) => {
       return;
     }
 
-    if (!collection) {
+    if (!lenses && !collection) {
       toast.error("Please select a gender category for the product.");
       return;
     }
@@ -730,7 +752,7 @@ const EditProduct = ({ onClose, onSuccess, product: productProp }) => {
           .trim()
           .toLowerCase(),
         shortDescription: String(shortDescription || "").trim(),
-        subcategory: String(subcategory || "").trim(),
+        subcategory: lenses ? "" : String(subcategory || "").trim(),
         brand: String(brand || "").trim(),
         tags: String(tags || "")
           .split(",")
@@ -744,8 +766,8 @@ const EditProduct = ({ onClose, onSuccess, product: productProp }) => {
         salePrice: Number(salePriceNum),
         originalPrice: Number(originalPriceNum),
         costPrice: Number(costPrice),
-        category,
-        productCollection: collection,
+        category: lenses ? "" : category,
+        productCollection: lenses ? "" : collection,
         sku: normalizedSku,
         barcode: String(barcode || "").trim(),
         stock: Number(stock),
@@ -895,23 +917,16 @@ const EditProduct = ({ onClose, onSuccess, product: productProp }) => {
                 name="category"
                 value={formData.category}
                 onChange={handleChange}
-                className="mt-1 block w-full rounded-md border-gray-300 bg-white shadow-sm focus:border-green-500 focus:ring-green-500 sm:text-sm"
-                required
+                disabled={isLensProduct}
+                className="mt-1 block w-full rounded-md border-gray-300 bg-white shadow-sm focus:border-green-500 focus:ring-green-500 disabled:bg-gray-100 disabled:text-gray-400 sm:text-sm"
+                required={!isLensProduct}
               >
-                {categories
-                  .filter(
-                    (option) =>
-                      option.value !== "male-collection" &&
-                      option.value !== "female-collection",
-                  )
-                  .map((option) => (
-                    <option
-                      key={option._id || option.value}
-                      value={option.value}
-                    >
-                      {option.name}
-                    </option>
-                  ))}
+                {isLensProduct && <option value="">Not used for lenses</option>}
+                {availableCategories.map((option) => (
+                  <option key={option._id || option.value} value={option.value}>
+                    {option.name}
+                  </option>
+                ))}
               </select>
             </div>
 
@@ -927,9 +942,11 @@ const EditProduct = ({ onClose, onSuccess, product: productProp }) => {
                 name="collection"
                 value={formData.collection}
                 onChange={handleChange}
-                className="mt-1 block w-full rounded-md border-gray-300 bg-white shadow-sm focus:border-green-500 focus:ring-green-500 sm:text-sm"
-                required
+                disabled={isLensProduct}
+                className="mt-1 block w-full rounded-md border-gray-300 bg-white shadow-sm focus:border-green-500 focus:ring-green-500 disabled:bg-gray-100 disabled:text-gray-400 sm:text-sm"
+                required={!isLensProduct}
               >
+                {isLensProduct && <option value="">Not used for lenses</option>}
                 <option value="male">Male</option>
                 <option value="female">Female</option>
                 <option value="both">Both</option>
@@ -1071,7 +1088,8 @@ const EditProduct = ({ onClose, onSuccess, product: productProp }) => {
                 type="text"
                 value={formData.subcategory}
                 onChange={handleChange}
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-green-500 focus:ring-green-500 sm:text-sm"
+                disabled={isLensProduct}
+                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-green-500 focus:ring-green-500 disabled:bg-gray-100 disabled:text-gray-400 sm:text-sm"
                 placeholder="Example: Herbal Supplements"
               />
             </div>

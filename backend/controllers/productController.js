@@ -417,6 +417,12 @@ export const createProduct = async (req, res) => {
       payload.productCollection = normalizedProductCollection;
     }
 
+    if (payload.lenses) {
+      payload.category = "";
+      payload.productCollection = "";
+      payload.subcategory = "";
+    }
+
     if (!hasOwn(incomingBody, "isActive")) {
       payload.isActive = payload.status === "published";
     }
@@ -685,6 +691,12 @@ export const updateProduct = async (req, res) => {
 
     if (normalizedProductCollection) {
       payload.productCollection = normalizedProductCollection;
+    }
+
+    if (payload.lenses) {
+      payload.category = "";
+      payload.productCollection = "";
+      payload.subcategory = "";
     }
 
     if (hasOwn(incomingBody, "shipping")) {

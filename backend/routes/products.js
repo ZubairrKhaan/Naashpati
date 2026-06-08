@@ -47,6 +47,15 @@ const isArrayOrCommaSeparatedString = (value) => {
   return typeof value === "string";
 };
 
+const isLensesPayload = (req) => {
+  const value = req.body?.lenses;
+  if (typeof value === "boolean") return value;
+  if (typeof value === "string") {
+    return ["true", "1", "yes"].includes(value.trim().toLowerCase());
+  }
+  return false;
+};
+
 // Validation rules
 const createProductValidation = [
   body("name")
@@ -124,7 +133,11 @@ const createProductValidation = [
     .trim()
     .isLength({ max: 128 })
     .withMessage("Barcode cannot be more than 128 characters"),
-  body("category").custom(async (value) => {
+  body("category").custom(async (value, { req }) => {
+    if (isLensesPayload(req)) {
+      return true;
+    }
+
     const category = await Category.findOne({ value, isActive: true });
     if (!category) {
       throw new Error("Invalid category");
@@ -132,11 +145,23 @@ const createProductValidation = [
     return true;
   }),
   body("productCollection")
-    .exists({ checkFalsy: true })
-    .withMessage("Product collection is required")
-    .trim()
-    .isIn(["male", "female", "both"])
-    .withMessage('Product collection must be one of "male", "female", or "both"'),
+    .custom((value, { req }) => {
+      if (isLensesPayload(req)) {
+        return true;
+      }
+
+      if (!value) {
+        throw new Error("Product collection is required");
+      }
+
+      if (!["male", "female", "both"].includes(String(value).trim())) {
+        throw new Error(
+          'Product collection must be one of "male", "female", or "both"',
+        );
+      }
+
+      return true;
+    }),
   body("faqContent")
     .optional()
     .trim()
@@ -318,7 +343,11 @@ const updateProductValidation = [
     .withMessage("Barcode cannot be more than 128 characters"),
   body("category")
     .optional()
-    .custom(async (value) => {
+    .custom(async (value, { req }) => {
+      if (isLensesPayload(req)) {
+        return true;
+      }
+
       const category = await Category.findOne({ value, isActive: true });
       if (!category) {
         throw new Error("Invalid category");
@@ -328,7 +357,7 @@ const updateProductValidation = [
   body("productCollection")
     .optional()
     .trim()
-    .isIn(["male", "female", "both"])
+    .isIn(["male", "female", "both", ""])
     .withMessage('Product collection must be one of "male", "female", or "both"'),
   body("stock")
     .optional()
