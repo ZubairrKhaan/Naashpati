@@ -49,6 +49,7 @@ import {
   FaBullhorn,
   FaImage,
   FaVideo,
+  FaChevronDown,
 } from "react-icons/fa";
 import { FaFileExcel } from "react-icons/fa";
 import {
@@ -113,6 +114,9 @@ const AdminDashboard = () => {
   const [activeTab, setActiveTab] = useState("overview");
   const [loading, setLoading] = useState(false);
   const [showAddProductModal, setShowAddProductModal] = useState(false);
+  const [activeProductCategory, setActiveProductCategory] = useState("all");
+  const [productCategoriesOpen, setProductCategoriesOpen] = useState(false);
+  const [addProductCategory, setAddProductCategory] = useState("");
   const [showEditProductModal, setShowEditProductModal] = useState(false);
   const [editingProduct, setEditingProduct] = useState(null);
   const [showAnnouncementModal, setShowAnnouncementModal] = useState(false);
@@ -271,6 +275,15 @@ const AdminDashboard = () => {
     const value = String(category.value || "").trim().toLowerCase();
     return value !== "male-collection" && value !== "female-collection";
   });
+  const selectedProductCategory = adminManageableCategories.find(
+    (category) => category.value === activeProductCategory,
+  );
+  const visibleProducts =
+    activeProductCategory === "all"
+      ? products
+      : products.filter((product) => product.category === activeProductCategory);
+  const activeProductCategoryName =
+    selectedProductCategory?.name || "All Products";
   const defaultFacilityHeading =
     "Pakistan's Largest Nutraceutical Manufacturing Facility";
   const defaultFacilityDescription =
@@ -614,6 +627,18 @@ const AdminDashboard = () => {
       fetchAboutContent();
     }
   }, [activeTab, dispatch, isAuthenticated, user]);
+
+  useEffect(() => {
+    if (activeProductCategory === "all") return;
+
+    const categoryExists = adminManageableCategories.some(
+      (category) => category.value === activeProductCategory,
+    );
+
+    if (!categoryExists) {
+      setActiveProductCategory("all");
+    }
+  }, [activeProductCategory, adminManageableCategories]);
 
   useEffect(() => {
     if (activeTab !== "batches") return;
@@ -1507,6 +1532,17 @@ const AdminDashboard = () => {
     setEditingProduct(product);
     setShowEditProductModal(true);
   };
+
+  const handleOpenAddProduct = (categoryValue = activeProductCategory) => {
+    const categoryForForm =
+      categoryValue && categoryValue !== "all"
+        ? categoryValue
+        : adminManageableCategories[0]?.value || "";
+
+    setAddProductCategory(categoryForForm);
+    setShowAddProductModal(true);
+  };
+
   const handleCreateCategory = async (e) => {
     e.preventDefault();
     if (!categoryForm.name.trim()) {
@@ -1542,6 +1578,8 @@ const AdminDashboard = () => {
       setCategoryForm({ name: "", description: "" });
       setCategoryImageFile(null);
       setCategoryImagePreview(null);
+      setActiveProductCategory(createdCategory.value);
+      setProductCategoriesOpen(true);
       toast.success(`${createdCategory.name} created successfully`);
     } catch (error) {
       setUploadingCategoryImage(false);
@@ -2097,14 +2135,64 @@ const AdminDashboard = () => {
               Overview
             </button>
             <button
-              onClick={() => setActiveTab("products")}
+              onClick={() => {
+                if (activeTab !== "products") {
+                  setActiveTab("products");
+                  setActiveProductCategory("all");
+                  setProductCategoriesOpen(true);
+                  return;
+                }
+
+                setProductCategoriesOpen((prev) => !prev);
+              }}
               className={getTabButtonClass("products")}
             >
               <span className="flex w-full items-center justify-between gap-3">
                 <span>Products</span>
-                <FaPlus className="text-xs opacity-80" />
+                <FaChevronDown
+                  className={`text-xs opacity-80 transition-transform ${
+                    productCategoriesOpen ? "rotate-180" : ""
+                  }`}
+                />
               </span>
             </button>
+            {productCategoriesOpen && adminManageableCategories.length > 0 && (
+              <div className="space-y-1 border-l border-gray-200 pl-3">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setActiveTab("products");
+                    setActiveProductCategory("all");
+                  }}
+                  className={`w-full rounded-md px-3 py-2 text-left text-sm font-medium transition ${
+                    activeTab === "products" && activeProductCategory === "all"
+                      ? "bg-green-50 text-green-700"
+                      : "text-gray-500 hover:bg-gray-50 hover:text-gray-900"
+                  }`}
+                >
+                  All Products
+                </button>
+                {adminManageableCategories.map((category) => (
+                  <button
+                    key={category._id || category.value}
+                    type="button"
+                    onClick={() => {
+                      setActiveTab("products");
+                      setActiveProductCategory(category.value);
+                      setProductCategoriesOpen(true);
+                    }}
+                    className={`w-full rounded-md px-3 py-2 text-left text-sm font-medium transition ${
+                      activeTab === "products" &&
+                      activeProductCategory === category.value
+                        ? "bg-green-50 text-green-700"
+                        : "text-gray-500 hover:bg-gray-50 hover:text-gray-900"
+                    }`}
+                  >
+                    {category.name}
+                  </button>
+                ))}
+              </div>
+            )}
             <button
               onClick={() => setActiveTab("orders")}
               className={getTabButtonClass("orders")}
@@ -2260,19 +2348,28 @@ const AdminDashboard = () => {
                 </div>
                 <div className="flex items-center gap-3">
                   <button
-                    onClick={() => setShowAddProductModal(true)}
+                    onClick={() => handleOpenAddProduct()}
+                    disabled={
+                      activeProductCategory === "all" &&
+                      adminManageableCategories.length === 0
+                    }
                     className="bg-[#68a300] text-white px-4 py-2 rounded hover:bg-[#5f9600] flex items-center space-x-2"
                   >
                     <FaPlus />
-                    <span>Add Product</span>
+                    <span>
+                      Add{" "}
+                      {activeProductCategory === "all"
+                        ? "Product"
+                        : activeProductCategoryName}
+                    </span>
                   </button>
                   <button
                     onClick={() =>
                       exportToExcel(
                         [
                           {
-                            name: "Products",
-                            data: formatProductsForExport(products),
+                            name: activeProductCategoryName,
+                            data: formatProductsForExport(visibleProducts),
                           },
                         ],
                         "products.xlsx",
@@ -2287,12 +2384,44 @@ const AdminDashboard = () => {
               </div>
 
               <div>
+                {adminManageableCategories.length > 0 && (
+                  <div className="mb-6 flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setActiveProductCategory("all")}
+                      className={`rounded border px-3 py-2 text-sm font-medium ${
+                        activeProductCategory === "all"
+                          ? "border-green-200 bg-green-50 text-green-700"
+                          : "border-gray-200 text-gray-600 hover:bg-gray-50"
+                      }`}
+                    >
+                      All Products
+                    </button>
+                    {adminManageableCategories.map((category) => (
+                      <button
+                        key={category._id || category.value}
+                        type="button"
+                        onClick={() => setActiveProductCategory(category.value)}
+                        className={`rounded border px-3 py-2 text-sm font-medium ${
+                          activeProductCategory === category.value
+                            ? "border-green-200 bg-green-50 text-green-700"
+                            : "border-gray-200 text-gray-600 hover:bg-gray-50"
+                        }`}
+                      >
+                        {category.name}
+                      </button>
+                    ))}
+                  </div>
+                )}
+
                 <div className="mb-4 flex items-center justify-between">
                   <div>
-                    <h3 className="text-xl font-semibold">All Products</h3>
+                    <h3 className="text-xl font-semibold">
+                      {activeProductCategoryName}
+                    </h3>
                     <p className="text-sm text-gray-500">
-                      Showing {products.length} product
-                      {products.length === 1 ? "" : "s"}
+                      Showing {visibleProducts.length} product
+                      {visibleProducts.length === 1 ? "" : "s"}
                     </p>
                   </div>
                 </div>
@@ -2325,7 +2454,7 @@ const AdminDashboard = () => {
                       </tr>
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-200">
-                      {products.map((product) => (
+                      {visibleProducts.map((product) => (
                         <tr key={product._id}>
                           <td className="px-4 py-4 whitespace-nowrap">
                             <div className="flex items-center">
@@ -2395,9 +2524,20 @@ const AdminDashboard = () => {
                     </tbody>
                   </table>
 
-                  {products.length === 0 && (
+                  {visibleProducts.length === 0 && (
                     <div className="border-t p-8 text-center text-gray-400">
-                      No products found yet.
+                      No products found in this section yet.
+                      {activeProductCategory !== "all" && (
+                        <button
+                          type="button"
+                          onClick={() =>
+                            handleOpenAddProduct(activeProductCategory)
+                          }
+                          className="ml-2 font-medium text-green-700 hover:text-green-800"
+                        >
+                          Add one now.
+                        </button>
+                      )}
                     </div>
                   )}
                 </div>
@@ -4652,7 +4792,10 @@ const AdminDashboard = () => {
                 Add New Product
               </h2>
               <button
-                onClick={() => setShowAddProductModal(false)}
+                onClick={() => {
+                  setShowAddProductModal(false);
+                  setAddProductCategory("");
+                }}
                 className="text-gray-400 hover:text-gray-600"
               >
                 <svg
@@ -4672,10 +4815,15 @@ const AdminDashboard = () => {
             </div>
             <div className="p-6">
               <CreateProduct
-                initialCategory=""
-                onClose={() => setShowAddProductModal(false)}
+                key={addProductCategory || "new-product"}
+                initialCategory={addProductCategory}
+                onClose={() => {
+                  setShowAddProductModal(false);
+                  setAddProductCategory("");
+                }}
                 onSuccess={() => {
                   setShowAddProductModal(false);
+                  setAddProductCategory("");
                   dispatch(fetchProducts({ includeDraft: true })); // Refresh products list
                 }}
               />
