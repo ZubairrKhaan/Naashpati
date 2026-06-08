@@ -36,9 +36,12 @@ const slugifyCategory = (value = "") =>
 const Header = () => {
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [shouldFocusMobileSearch, setShouldFocusMobileSearch] =
+    useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const location = useLocation();
   const navigate = useNavigate();
+  const mobileSearchInputRef = useRef(null);
 
   useEffect(() => {
     if (!isMobileMenuOpen) return undefined;
@@ -50,6 +53,17 @@ const Header = () => {
       document.body.style.overflow = originalOverflow;
     };
   }, [isMobileMenuOpen]);
+
+  useEffect(() => {
+    if (!isMobileMenuOpen || !shouldFocusMobileSearch) return undefined;
+
+    const focusTimer = window.setTimeout(() => {
+      mobileSearchInputRef.current?.focus();
+      setShouldFocusMobileSearch(false);
+    }, 300);
+
+    return () => window.clearTimeout(focusTimer);
+  }, [isMobileMenuOpen, shouldFocusMobileSearch]);
 
   const dispatch = useDispatch();
   const user = useSelector(selectAuthUser);
@@ -131,6 +145,7 @@ const Header = () => {
     const q = searchQuery.trim();
     if (!q) return;
     navigate("/products", { state: { search: q } });
+    setIsMobileMenuOpen(false);
   };
 
   const handleClearSearch = () => {
@@ -250,8 +265,71 @@ const Header = () => {
     );
   };
 
+  const renderSearchForm = (className, inputRef) => (
+    <form onSubmit={handleSearch} className={className}>
+      <div className="relative w-full">
+        <input
+          ref={inputRef}
+          type="text"
+          value={searchQuery}
+          onChange={(e) => handleSearchChange(e.target.value)}
+          placeholder="Search products..."
+          className="w-full rounded-md border border-gray-300 bg-white py-1.5 pl-4 pr-16 text-sm outline-none focus:border-[#68a300] focus:ring-1 focus:ring-[#68a300]"
+        />
+        {searchQuery && (
+          <button
+            type="button"
+            onClick={handleClearSearch}
+            className="absolute right-9 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-700"
+            aria-label="Clear search"
+          >
+            <MdClose className="text-base" />
+          </button>
+        )}
+        <button
+          type="submit"
+          className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-[#68a300]"
+          aria-label="Search"
+        >
+          <MdSearch className="text-lg" />
+        </button>
+      </div>
+    </form>
+  );
+
+  const mobileMenuButton = (
+    <button
+      type="button"
+      className="flex h-10 w-10 items-center justify-center text-gray-800 md:hidden"
+      onClick={() => {
+        setIsMobileMenuOpen(!isMobileMenuOpen);
+        setIsProfileMenuOpen(false);
+      }}
+      aria-label={isMobileMenuOpen ? "Close menu" : "Open menu"}
+    >
+      {isMobileMenuOpen ? (
+        <MdClose className="text-2xl" />
+      ) : (
+        <MdMenu className="text-2xl" />
+      )}
+    </button>
+  );
+
   const rightIcons = (
     <div className="flex items-center space-x-3">
+      <button
+        type="button"
+        className="flex h-8 w-8 items-center justify-center text-gray-700 md:hidden"
+        onClick={() => {
+          setIsMobileMenuOpen(true);
+          setIsProfileMenuOpen(false);
+          setShouldFocusMobileSearch(true);
+        }}
+        aria-label="Open search"
+      >
+        <MdSearch className="text-xl" />
+      </button>
+
       <Link to="/cart" className="relative">
         <MdShoppingCart className="text-xl text-[#68a300]" />
         {cartItemCount > 0 && (
@@ -262,7 +340,7 @@ const Header = () => {
       </Link>
 
       {showAuthPendingState ? (
-        <div className="h-8 w-20 animate-pulse rounded-md bg-gray-100" />
+        <div className="h-8 w-8 animate-pulse rounded-md bg-gray-100 md:w-20" />
       ) : user ? (
         <div className="relative">
           <button
@@ -313,7 +391,7 @@ const Header = () => {
           )}
         </div>
       ) : (
-        <div className="flex space-x-2 text-sm">
+        <div className="hidden space-x-2 text-sm md:flex">
           <Link to="/login" className="text-gray-700 hover:text-[#68a300]">
             Login
           </Link>
@@ -322,17 +400,6 @@ const Header = () => {
           </Link>
         </div>
       )}
-
-      <button
-        type="button"
-        className="md:hidden"
-        onClick={() => {
-          setIsMobileMenuOpen(!isMobileMenuOpen);
-          setIsProfileMenuOpen(false);
-        }}
-      >
-        {isMobileMenuOpen ? <MdClose /> : <MdMenu />}
-      </button>
     </div>
   );
 
@@ -341,13 +408,15 @@ const Header = () => {
       <div className="mx-auto max-w-[1600px] px-4 xl:px-8">
         {/* ── Top row: logo + search + icons ── */}
         <div
-          className={`flex h-16 items-center justify-between ${
+          className={`relative flex h-16 items-center justify-between ${
             isProfileMenuOpen ? "overflow-visible" : "overflow-hidden"
           }`}
         >
+          {mobileMenuButton}
+
           <Link
             to="/"
-            className="flex items-center shrink-0 border-0 outline-none ring-0 focus:outline-none focus:ring-0 focus-visible:outline-none"
+            className="absolute left-1/2 flex -translate-x-1/2 items-center shrink-0 border-0 outline-none ring-0 focus:outline-none focus:ring-0 focus-visible:outline-none md:static md:translate-x-0"
           >
             <img
               src="/assets/logos/Logo.png"
@@ -356,39 +425,11 @@ const Header = () => {
             />
           </Link>
 
-          <form
-            onSubmit={handleSearch}
-            className="hidden md:flex items-center w-[480px]"
-          >
-            <div className="relative w-full">
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => handleSearchChange(e.target.value)}
-                placeholder="Search products..."
-                className="w-full rounded-md border border-gray-300 bg-white py-1.5 pl-4 pr-16 text-sm outline-none focus:border-[#68a300] focus:ring-1 focus:ring-[#68a300]"
-              />
-              {searchQuery && (
-                <button
-                  type="button"
-                  onClick={handleClearSearch}
-                  className="absolute right-9 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-700"
-                  aria-label="Clear search"
-                >
-                  <MdClose className="text-base" />
-                </button>
-              )}
-              <button
-                type="submit"
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-[#68a300]"
-                aria-label="Search"
-              >
-                <MdSearch className="text-lg" />
-              </button>
-            </div>
-          </form>
+          {renderSearchForm(
+            "absolute left-1/2 hidden w-[min(42vw,520px)] -translate-x-1/2 items-center md:flex",
+          )}
 
-          {rightIcons}
+          <div className="ml-auto">{rightIcons}</div>
         </div>
 
         {/* ── Nav links row ── */}
@@ -415,8 +456,8 @@ const Header = () => {
         />
 
         <aside
-          className={`absolute right-0 top-0 h-full w-[82%] max-w-[340px] bg-white shadow-2xl border-l border-gray-200 transition-transform duration-300 ${
-            isMobileMenuOpen ? "translate-x-0" : "translate-x-full"
+          className={`absolute left-0 top-0 flex h-full w-[82%] max-w-[340px] flex-col bg-white shadow-2xl border-r border-gray-200 transition-transform duration-300 ${
+            isMobileMenuOpen ? "translate-x-0" : "-translate-x-full"
           }`}
         >
           <div className="flex items-center justify-between border-b border-gray-100 px-4 py-4">
@@ -429,6 +470,10 @@ const Header = () => {
             >
               <MdClose className="text-xl" />
             </button>
+          </div>
+
+          <div className="border-b border-gray-100 px-4 py-4">
+            {renderSearchForm("flex items-center", mobileSearchInputRef)}
           </div>
 
           <nav className="space-y-1 px-4 py-4">
@@ -449,6 +494,25 @@ const Header = () => {
               </NavLink>
             ))}
           </nav>
+
+          {!user && !showAuthPendingState && (
+            <div className="mt-auto border-t border-gray-100 px-4 py-4">
+              <Link
+                to="/login"
+                onClick={() => setIsMobileMenuOpen(false)}
+                className="block rounded px-2 py-2.5 font-semibold text-[#68a300] hover:bg-gray-50"
+              >
+                Login
+              </Link>
+              <Link
+                to="/register"
+                onClick={() => setIsMobileMenuOpen(false)}
+                className="block rounded px-2 py-2.5 font-semibold text-blue-600 hover:bg-gray-50"
+              >
+                Sign Up
+              </Link>
+            </div>
+          )}
         </aside>
       </div>
     </header>

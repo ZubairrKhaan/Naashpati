@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { MdInfo, MdWarning, MdCheckCircle, MdLocalOffer } from "react-icons/md";
 import {
@@ -8,14 +8,14 @@ import {
 
 const MARQUEE_STYLE = `
 @keyframes marquee {
-  0%   { transform: translateX(0); }
-  100% { transform: translateX(-50%); }
+  0%   { transform: translate3d(0, 0, 0); }
+  100% { transform: translate3d(calc(var(--marquee-distance) * -1), 0, 0); }
 }
 .marquee-track {
   display: flex;
   white-space: nowrap;
   will-change: transform;
-  animation: marquee 22s linear infinite;
+  animation: marquee var(--marquee-duration) linear infinite;
 }
 `;
 
@@ -42,6 +42,91 @@ const typeConfig = {
   },
 };
 
+const MarqueeAnnouncement = ({ announcement }) => {
+  const containerRef = useRef(null);
+  const groupRef = useRef(null);
+  const [repeatCount, setRepeatCount] = useState(2);
+  const [metrics, setMetrics] = useState({
+    distance: 0,
+    duration: 28,
+  });
+  const config = typeConfig[announcement.type] || typeConfig.info;
+  const text = announcement.title
+    ? `${announcement.title}: ${announcement.message}`
+    : announcement.message;
+
+  useLayoutEffect(() => {
+    const container = containerRef.current;
+    const group = groupRef.current;
+    if (!container || !group) return undefined;
+
+    const updateMetrics = () => {
+      const containerWidth = container.offsetWidth || 1;
+      const groupWidth = group.scrollWidth || 1;
+      const nextRepeatCount = Math.max(
+        2,
+        Math.ceil((containerWidth * 2.5) / groupWidth) * repeatCount,
+      );
+
+      if (nextRepeatCount > repeatCount) {
+        setRepeatCount(nextRepeatCount);
+        return;
+      }
+
+      const distance = group.scrollWidth;
+      const pixelsPerSecond = 48;
+
+      setMetrics({
+        distance,
+        duration: Math.max(24, distance / pixelsPerSecond),
+      });
+    };
+
+    updateMetrics();
+
+    const resizeObserver = new ResizeObserver(updateMetrics);
+    resizeObserver.observe(container);
+    resizeObserver.observe(group);
+
+    return () => resizeObserver.disconnect();
+  }, [repeatCount, text]);
+
+  const marqueeItems = Array.from({ length: repeatCount });
+  const marqueeGroup = (
+    <span className="inline-flex">
+      {marqueeItems.map((_, i) => (
+        <span
+          key={i}
+          className={`inline-flex items-center gap-1.5 px-10 ${config.text}`}
+        >
+          {config.icon}
+          {text}
+          <span className="ml-10 opacity-40">*</span>
+        </span>
+      ))}
+    </span>
+  );
+
+  return (
+    <div className={`w-full flex items-center py-1.5 text-sm ${config.bg}`}>
+      <div ref={containerRef} className="flex-1 overflow-hidden">
+        <div
+          className="marquee-track"
+          style={{
+            "--marquee-distance": `${metrics.distance}px`,
+            "--marquee-duration": `${metrics.duration}s`,
+          }}
+        >
+          <span ref={groupRef} className="inline-flex">
+            {marqueeGroup}
+          </span>
+          {marqueeGroup}
+        </div>
+      </div>
+    </div>
+  );
+};
+
 const AnnouncementBanner = () => {
   const dispatch = useDispatch();
   const announcements = useSelector(selectActiveAnnouncements);
@@ -56,40 +141,12 @@ const AnnouncementBanner = () => {
     <>
       <style>{MARQUEE_STYLE}</style>
       <div className="w-full flex flex-col">
-        {announcements.map((announcement) => {
-          const config = typeConfig[announcement.type] || typeConfig.info;
-          const text = announcement.title
-            ? `${announcement.title}: ${announcement.message}`
-            : announcement.message;
-
-          return (
-            <div
-              key={announcement._id}
-              className={`w-full flex items-center py-1.5 text-sm ${config.bg}`}
-            >
-              {/* scrolling area */}
-              <div className="flex-1 overflow-hidden">
-                <div className="marquee-track">
-                  {/* Two identical groups so translateX(-50%) loops seamlessly */}
-                  {[0, 1].map((group) => (
-                    <span key={group} className="inline-flex">
-                      {Array.from({ length: 6 }).map((_, i) => (
-                        <span
-                          key={i}
-                          className={`inline-flex items-center gap-1.5 px-10 ${config.text}`}
-                        >
-                          {config.icon}
-                          {text}
-                          <span className="ml-10 opacity-40">✦</span>
-                        </span>
-                      ))}
-                    </span>
-                  ))}
-                </div>
-              </div>
-            </div>
-          );
-        })}
+        {announcements.map((announcement) => (
+          <MarqueeAnnouncement
+            key={announcement._id}
+            announcement={announcement}
+          />
+        ))}
       </div>
     </>
   );
