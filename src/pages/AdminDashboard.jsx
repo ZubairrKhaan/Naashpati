@@ -60,6 +60,7 @@ import {
   formatCategoriesForExport,
 } from "../utils/exportToExcel";
 import {
+  fetchAnnouncements,
   fetchAllAnnouncements,
   createAnnouncement,
   updateAnnouncement,
@@ -93,6 +94,20 @@ import {
 } from "../store/slices/saleOfferSlice";
 
 const LENSES_PRODUCTS_SECTION = "lenses-products";
+
+const toLocalDateBoundaryIso = (dateValue, boundary) => {
+  if (!dateValue) return boundary === "end" ? null : undefined;
+
+  const [year, month, day] = dateValue.split("-").map(Number);
+  if (!year || !month || !day) return dateValue;
+
+  const date =
+    boundary === "end"
+      ? new Date(year, month - 1, day, 23, 59, 59, 999)
+      : new Date(year, month - 1, day, 0, 0, 0, 0);
+
+  return date.toISOString();
+};
 
 const AdminDashboard = () => {
   const dispatch = useDispatch();
@@ -4666,6 +4681,7 @@ const AdminDashboard = () => {
                                   await dispatch(
                                     deleteAnnouncement(ann._id),
                                   ).unwrap();
+                                  dispatch(fetchAnnouncements());
                                   toast.success("Announcement deleted");
                                 } catch {
                                   toast.error("Failed to delete announcement");
@@ -4719,8 +4735,14 @@ const AdminDashboard = () => {
                 try {
                   const payload = {
                     ...announcementForm,
-                    startDate: announcementForm.startDate || undefined,
-                    endDate: announcementForm.endDate || null,
+                    startDate: toLocalDateBoundaryIso(
+                      announcementForm.startDate,
+                      "start",
+                    ),
+                    endDate: toLocalDateBoundaryIso(
+                      announcementForm.endDate,
+                      "end",
+                    ),
                   };
                   if (editingAnnouncement) {
                     await dispatch(
@@ -4736,6 +4758,7 @@ const AdminDashboard = () => {
                   }
                   setShowAnnouncementModal(false);
                   dispatch(fetchAllAnnouncements());
+                  dispatch(fetchAnnouncements());
                 } catch {
                   toast.error("Failed to save announcement");
                 }
