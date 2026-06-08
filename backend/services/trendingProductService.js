@@ -1,4 +1,5 @@
 import Product from "../models/Product.js";
+import mongoose from "mongoose";
 import { applyMetricDelta } from "../repositories/productMetricsRepository.js";
 import { invalidateBestsellerCache } from "./bestsellerCacheService.js";
 import {
@@ -16,9 +17,28 @@ export const fetchTrendingProducts = async (useCache = true) => {
   return result.data;
 };
 
+const resolveProductId = async (identifier) => {
+  const value = String(identifier || "").trim();
+  if (!value) {
+    return null;
+  }
+
+  if (mongoose.Types.ObjectId.isValid(value)) {
+    return value;
+  }
+
+  const product = await Product.findOne({ slug: value }).select("_id").lean();
+  return product?._id || null;
+};
+
 export const recordProductView = async (productId) => {
   try {
-    await Product.findByIdAndUpdate(productId, { $inc: { views: 1 } });
+    const resolvedProductId = await resolveProductId(productId);
+    if (!resolvedProductId) {
+      return;
+    }
+
+    await Product.findByIdAndUpdate(resolvedProductId, { $inc: { views: 1 } });
   } catch (error) {
     console.error("[Trending] Error recording product view:", error.message);
   }
@@ -26,7 +46,14 @@ export const recordProductView = async (productId) => {
 
 export const recordAddToCart = async (productId) => {
   try {
-    await Product.findByIdAndUpdate(productId, { $inc: { addToCartCount: 1 } });
+    const resolvedProductId = await resolveProductId(productId);
+    if (!resolvedProductId) {
+      return;
+    }
+
+    await Product.findByIdAndUpdate(resolvedProductId, {
+      $inc: { addToCartCount: 1 },
+    });
   } catch (error) {
     console.error("[Trending] Error recording add to cart:", error.message);
   }
@@ -44,8 +71,13 @@ export const recordProductSale = async (
     return;
   }
 
+  const resolvedProductId = await resolveProductId(productId);
+  if (!resolvedProductId) {
+    return;
+  }
+
   await applyMetricDelta({
-    productId,
+    productId: resolvedProductId,
     delta: {
       totalSales: qty,
       sales24h: qty,
@@ -56,7 +88,7 @@ export const recordProductSale = async (
     },
   });
 
-  await refreshScoresForProductIds([productId]);
+  await refreshScoresForProductIds([resolvedProductId]);
   await invalidateBestsellerCache();
 };
 
