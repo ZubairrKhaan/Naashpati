@@ -636,7 +636,14 @@ const AdminDashboard = () => {
       dispatch(fetchAllHeroSlides());
       dispatch(fetchHeroBadges());
     } else if (activeTab === "sales") {
-      dispatch(fetchProducts({ page: 1, limit: 200, includeDraft: true }));
+      dispatch(
+        fetchProducts({
+          page: 1,
+          limit: 200,
+          includeDraft: true,
+          lenses: "all",
+        }),
+      );
       dispatch(fetchAllSaleOffers());
     } else if (activeTab === "batches") {
       dispatch(fetchProducts({ page: 1, limit: 200, includeDraft: true }));
@@ -3372,8 +3379,25 @@ const AdminDashboard = () => {
                               }
                               className="h-4 w-4 rounded border-gray-300 text-green-600 focus:ring-green-500"
                             />
-                            <span className="min-w-0 flex-1 truncate text-sm text-gray-700">
-                              {product.name}
+                            <img
+                              src={resolveMediaUrl(
+                                product.image ||
+                                  product.thumbnail ||
+                                  product.images?.[0]?.url ||
+                                  product.images?.[0],
+                              )}
+                              alt={product.name}
+                              className="h-11 w-11 flex-none rounded border border-gray-200 object-cover"
+                            />
+                            <span className="min-w-0 flex-1">
+                              <span className="block truncate text-sm font-medium text-gray-700">
+                                {product.name}
+                              </span>
+                              <span className="block truncate text-xs text-gray-400">
+                                {product.lenses
+                                  ? "Lenses"
+                                  : product.category || "Product"}
+                              </span>
                             </span>
                           </label>
                         ))}
